@@ -7,10 +7,7 @@ import { mediaService } from './src/services/MediaService';
 import { locationService } from './src/services/LocationService';
 import { weatherService } from './src/services/WeatherService';
 import CameraScreen from './src/screens/CameraScreen';
-import TimelineScreen from './src/screens/TimelineScreen';
-import ExperienceDetailScreen from './src/screens/ExperienceDetailScreen';
 import AudioRecorder from './src/components/AudioRecorder';
-import type { Experience } from './src/types/models';
 import AudioPlayer from './src/components/AudioPlayer';
 
 export default function App() {
@@ -18,8 +15,6 @@ export default function App() {
   const [locationInfo, setLocationInfo] = useState<string>('');
   const [weatherInfo, setWeatherInfo] = useState<string>('');
   const [showCamera, setShowCamera] = useState(false);
-  const [showTimeline, setShowTimeline] = useState(false);
-  const [selectedExperience, setSelectedExperience] = useState<Experience | null>(null);
   const [audioMemos, setAudioMemos] = useState<string[]>([]);
 
   useEffect(() => {
@@ -77,30 +72,6 @@ export default function App() {
     }
   };
 
-  // 体験カードをタップしたときの処理
-  const handleExperiencePress = (experience: Experience) => {
-    // タイムラインを閉じてから詳細画面を開く
-    setShowTimeline(false);
-    // 少し遅延させてモーダルが完全に閉じるのを待つ
-    setTimeout(() => {
-      setSelectedExperience(experience);
-    }, 300);
-  };
-
-  // 詳細画面を閉じる
-  const handleDetailClose = () => {
-    setSelectedExperience(null);
-    // タイムラインに戻る
-    setShowTimeline(true);
-  };
-
-  // 体験を削除した後の処理
-  const handleExperienceDelete = () => {
-    setSelectedExperience(null);
-    setShowTimeline(false);
-    // タイムラインを再度開く場合は、自動的に再読み込みされる
-    setTimeout(() => setShowTimeline(true), 100);
-  };
   if (!isReady) {
     return (
       <View className="flex-1 bg-primary-500 items-center justify-center">
@@ -132,17 +103,6 @@ export default function App() {
         <Ionicons name="camera" size={24} color="#ffffff" />
         <Text className="text-white text-center font-bold text-lg ml-2">
           カメラで記録する
-        </Text>
-      </Pressable>
-
-      {/* タイムライン表示ボタン */}
-      <Pressable
-        className="bg-white px-6 py-3 rounded-lg mt-4 flex-row items-center justify-center"
-        onPress={() => setShowTimeline(true)}
-      >
-        <Ionicons name="time" size={24} color="#3388ff" />
-        <Text className="text-primary-500 text-center font-bold text-lg ml-2">
-          タイムラインを見る
         </Text>
       </Pressable>
 
@@ -234,33 +194,6 @@ export default function App() {
 
           <CameraScreen />
         </View>
-      </Modal>
-
-      {/* タイムライン画面モーダル */}
-      <Modal
-        visible={showTimeline}
-        animationType="slide"
-        presentationStyle="fullScreen"
-      >
-        <TimelineScreen
-          onExperiencePress={handleExperiencePress}
-          onClose={() => setShowTimeline(false)}
-        />
-      </Modal>
-
-      {/* 詳細画面モーダル */}
-      <Modal
-        visible={selectedExperience !== null}
-        animationType="slide"
-        presentationStyle="fullScreen"
-      >
-        {selectedExperience && (
-          <ExperienceDetailScreen
-            experience={selectedExperience}
-            onClose={handleDetailClose}
-            onDelete={handleExperienceDelete}
-          />
-        )}
       </Modal>
 
       <StatusBar style="light" />

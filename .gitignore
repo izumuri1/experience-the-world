@@ -6,6 +6,7 @@ node_modules/
 # Expo
 .expo/
 dist/
+dist-ssr/
 web-build/
 expo-env.d.ts
 
@@ -25,12 +26,15 @@ expo-env.d.ts
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+pnpm-debug.log*
+lerna-debug.log*
 
 # macOS
 .DS_Store
 *.pem
 
 # local env files
+.env
 .env*.local
 
 # typescript
@@ -39,3 +43,17 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Logs
+logs
+*.log
