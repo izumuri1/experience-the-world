@@ -635,6 +635,35 @@ cat > /tmp/handlers.txt << 'EOF'
     setSelectedExperience(experience);
   };
 
+
+### Gitの問題（WSL環境）
+
+**問題**: `git status`や`git add`で「detected dubious ownership in repository」エラーが発生
+
+**症状:**
+```
+fatal: detected dubious ownership in repository at '//wsl.localhost/Ubuntu-22.04/home/izumuri/the-world'
+To add an exception for this directory, call:
+	git config --global --add safe.directory '%(prefix)///wsl.localhost/Ubuntu-22.04/home/izumuri/the-world'
+```
+
+**原因:**
+- WSL (Windows Subsystem for Linux) 環境でGitを使用する際、WindowsとLinux間でファイル所有権が異なるため、Gitがセキュリティリスクと判断してブロックする
+
+**解決方法:**
+
+エラーメッセージに表示されたコマンドを実行して、このディレクトリを安全なディレクトリとして登録：
+
+```bash
+git config --global --add safe.directory '//wsl.localhost/Ubuntu-22.04/home/izumuri/the-world'
+```
+
+このコマンドは一度実行すれば、以降は問題なくGitコマンドが使えるようになります。
+
+**注意:**
+- このコマンドはプロジェクトごとに実行する必要があります
+- 別のWSLプロジェクトで同じエラーが出た場合も、同様にそのパスを登録してください
+
 ### Expo開発サーバーの起動
 
 **実機接続時の起動コマンド:**
