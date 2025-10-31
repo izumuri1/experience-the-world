@@ -67,6 +67,138 @@ EXPO_PUBLIC_OPENWEATHER_API_KEY=your_api_key_here
 
 ## 技術スタック
 
+
+## Gitワークフロー
+
+### 基本的な開発フロー
+
+プロジェクトはGitHubでバージョン管理されています。以下のワークフローに従って開発を進めてください。
+
+**リポジトリ:** https://github.com/izumuri1/experience-the-world
+
+### 日常的な作業フロー
+
+```bash
+# 1. コードを変更・実装
+
+# 2. 変更内容を確認
+git status
+
+# 3. 変更をステージング
+git add .
+
+# 4. コミット（意味のあるメッセージで）
+git commit -m "feat: ホーム画面を実装"
+
+# 5. GitHubにプッシュ
+git push origin main
+# → Username: izumuri1 を入力
+# → Password: GitHubパスワードを入力
+```
+
+### コミットのタイミング
+
+**推奨するコミット単位:**
+- ✅ 各ステップの完了時
+- ✅ 機能追加が完了した時
+- ✅ バグ修正が完了した時
+- ✅ リファクタリングが完了した時
+- ✅ ドキュメント更新時
+
+**避けるべき:**
+- ❌ 1日の終わりにまとめてコミット（何を変更したか分からなくなる）
+- ❌ 動かない状態でコミット（次回の開発開始時に困る）
+- ❌ 無意味なコミットメッセージ（例: "update", "fix", "test"）
+
+### コミットメッセージの書き方
+
+**Conventional Commits形式を使用:**
+
+```
+<type>: <短い説明>
+
+<詳細な説明（オプション）>
+```
+
+**Type一覧:**
+- `feat:` - 新機能追加
+- `fix:` - バグ修正
+- `docs:` - ドキュメント変更のみ
+- `style:` - コードの意味に影響しない変更（空白、フォーマット等）
+- `refactor:` - バグ修正や機能追加を伴わないコード改善
+- `test:` - テストの追加・修正
+- `chore:` - ビルドプロセスやツールの変更
+
+**良いコミットメッセージの例:**
+```bash
+git commit -m "feat: タイムライン画面の実装
+
+- TimelineScreenコンポーネント作成
+- FlatListで時系列表示
+- 日付セパレーターの実装
+- iPhone実機テスト完了"
+```
+
+**悪いコミットメッセージの例:**
+```bash
+git commit -m "update"           # ❌ 何を変更したか不明
+git commit -m "fix"              # ❌ 何を修正したか不明
+git commit -m "いろいろ変更"      # ❌ 具体性がない
+```
+
+### ステップごとのコミット例
+
+```bash
+# ステップ6完了時
+git add .
+git commit -m "feat: ステップ6完了 - タイムライン画面実装
+
+- TimelineScreen, ExperienceCard, ExperienceDetailScreen実装
+- 写真パスDB保存バグ修正
+- モーダル遷移改善
+- UX改善（タップ領域拡大、シャッター音回避）
+- iPhone実機テスト完了"
+git push origin main
+
+# ドキュメント更新時
+git add .claude/project-rules.md
+git commit -m "docs: Gitワークフローの追記"
+git push origin main
+```
+
+### ブランチ戦略（Phase 1）
+
+Phase 1では、**mainブランチ直接開発**で進めます。
+
+```bash
+# 基本的にこのコマンドだけ
+git push origin main
+```
+
+**Phase 2以降の計画:**
+- feature/機能名 でブランチを切って開発
+- Pull Requestでレビュー
+- mainにマージ
+
+### トラブル時の対処
+
+**間違ってコミットした場合:**
+```bash
+# 直前のコミットを取り消し（変更は残る）
+git reset --soft HEAD^
+
+# 修正してから再コミット
+git add .
+git commit -m "fix: 正しいコミットメッセージ"
+```
+
+**プッシュに失敗した場合:**
+```bash
+# リモートの変更を取得してからプッシュ
+git pull origin main
+git push origin main
+```
+
 ### モバイルアプリ（ネイティブ）
 - **フレームワーク**: React Native with Expo
 - **開発環境**: Expo Go（Phase 1）
