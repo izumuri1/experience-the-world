@@ -4,11 +4,39 @@
  */
 
 /**
+ * tripsテーブルの行型
+ */
+export interface TripRow {
+  id: string;
+  user_id: string;
+  title: string;
+  start_date: number; // Unix timestamp（秒）
+  end_date: number | null; // Unix timestamp（秒）
+  companions: string | null;
+  purpose: string | null;
+  notes: string | null;
+  created_at: number;
+  updated_at: number;
+}
+
+/**
+ * trip_countriesテーブルの行型
+ */
+export interface TripCountryRow {
+  trip_id: string;
+  country_code: string;
+  country_name: string;
+  continent: string | null;
+  first_visit_date: number; // Unix timestamp（秒）
+}
+
+/**
  * experiencesテーブルの行型
  */
 export interface ExperienceRow {
   id: string;
   user_id: string;
+  trip_id: string | null;
   timestamp: number; // Unix timestamp（秒）
   latitude: number;
   longitude: number;

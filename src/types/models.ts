@@ -53,7 +53,33 @@ export interface MediaFile {
 }
 
 /**
- * 訪問国
+ * 旅行
+ */
+export interface Trip {
+  id: string;
+  title: string;
+  startDate: Date;
+  endDate: Date | null;
+  companions?: string; // カンマ区切りの文字列
+  purpose?: string; // '観光', '出張', 'ワーケーション' など
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * 旅行-国の関連（中間テーブル）
+ */
+export interface TripCountry {
+  tripId: string;
+  countryCode: string;
+  countryName: string;
+  continent: string;
+  firstVisitDate: Date;
+}
+
+/**
+ * 訪問国（統計情報）
  */
 export interface VisitedCountry {
   countryCode: string;

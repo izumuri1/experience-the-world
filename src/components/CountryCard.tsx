@@ -65,10 +65,10 @@ export default function CountryCard({ country, onPress }: CountryCardProps) {
 
       {/* 統計情報セクション */}
       <View className="px-6 py-5">
-        {/* 2段目: 体験回数・写真枚数 */}
+        {/* 2段目: 訪問回数・写真枚数 */}
         <View className="flex-row justify-between mb-4">
           <View className="flex-1 bg-blue-50 rounded-xl p-3 mr-2">
-            <Text className="text-xs text-gray-600 mb-1 font-medium">体験回数</Text>
+            <Text className="text-xs text-gray-600 mb-1 font-medium">訪問回数</Text>
             <Text className="text-2xl font-bold text-primary-600">
               {country.visitCount}
             </Text>
