@@ -6,11 +6,15 @@ import { Ionicons } from '@expo/vector-icons';
 interface AudioRecorderProps {
   onRecordingComplete: (uri: string) => void;
   maxDuration?: number; // ミリ秒
+  textColor?: string; // テキストの色（デフォルト: white）
+  backgroundColor?: string; // 背景色（デフォルト: transparent）
 }
 
 export default function AudioRecorder({
   onRecordingComplete,
   maxDuration = 180000, // デフォルト3分
+  textColor = '#ffffff',
+  backgroundColor = 'transparent',
 }: AudioRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
@@ -155,60 +159,95 @@ export default function AudioRecorder({
   };
 
   return (
-    <View className="items-center">
+    <View className="items-center py-4" style={{ backgroundColor }}>
       {/* 録音中の表示 */}
       {isRecording && (
-        <View className="mb-4 bg-white/10 px-4 py-2 rounded-full flex-row items-center">
+        <View className="mb-6 px-6 py-3 rounded-full flex-row items-center" style={{ backgroundColor: textColor === '#ffffff' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }}>
           <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
             <View
-              className="w-3 h-3 rounded-full mr-2"
+              className="w-4 h-4 rounded-full mr-3"
               style={{ backgroundColor: '#ef4444' }}
             />
           </Animated.View>
-          <Text className="text-white font-bold">
+          <Text className="text-lg font-bold" style={{ color: textColor }}>
             {formatDuration(recordingDuration)}
           </Text>
         </View>
       )}
 
-      {/* 録音ボタン */}
-      <View className="flex-row items-center">
-        {/* キャンセルボタン（録音中のみ表示） */}
-        {isRecording && (
-          <Pressable
-            className="bg-neutral-800/70 w-14 h-14 rounded-full items-center justify-center mr-4"
-            onPress={cancelRecording}
-          >
-            <Ionicons name="close" size={28} color="#ffffff" />
-          </Pressable>
-        )}
-
-        {/* メイン録音ボタン */}
-        <Pressable
-          className={`w-16 h-16 rounded-full items-center justify-center ${
-            isRecording ? 'bg-red-500' : 'bg-secondary-500'
-          }`}
-          onPress={isRecording ? stopRecording : startRecording}
-          disabled={isRecording && recordingDuration >= maxDuration}
-        >
-          <Ionicons
-            name={isRecording ? 'stop' : 'mic'}
-            size={32}
-            color="#ffffff"
-          />
-        </Pressable>
-      </View>
-
-      {/* 説明テキスト */}
+      {/* 録音前 - マイクボタンのみ */}
       {!isRecording && (
-        <Text className="text-white text-xs mt-4 opacity-70">
-          タップして録音開始
-        </Text>
+        <View className="items-center">
+          <Pressable
+            className="w-20 h-20 rounded-full items-center justify-center mb-4"
+            onPress={startRecording}
+            style={{
+              backgroundColor: '#eab308',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.3,
+              shadowRadius: 8,
+              elevation: 8,
+            }}
+          >
+            <Ionicons name="mic" size={40} color="#ffffff" />
+          </Pressable>
+          <Text className="text-sm font-semibold mb-1" style={{ color: textColor }}>
+            録音開始
+          </Text>
+          <Text className="text-xs opacity-70" style={{ color: textColor }}>
+            マイクボタンをタップ
+          </Text>
+        </View>
       )}
+
+      {/* 録音中 - 停止とキャンセルボタン */}
       {isRecording && (
-        <Text className="text-white text-xs mt-4 opacity-70">
-          停止ボタンまたはキャンセルボタンをタップ
-        </Text>
+        <View className="items-center">
+          <View className="flex-row items-center mb-6">
+            {/* 停止ボタン */}
+            <View className="items-center mx-3">
+              <Pressable
+                className="w-20 h-20 rounded-full items-center justify-center mb-2"
+                onPress={stopRecording}
+                style={{
+                  backgroundColor: '#ef4444',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 8,
+                }}
+              >
+                <Ionicons name="stop" size={40} color="#ffffff" />
+              </Pressable>
+              <Text className="text-sm font-semibold" style={{ color: textColor }}>
+                停止して保存
+              </Text>
+            </View>
+
+            {/* キャンセルボタン */}
+            <View className="items-center mx-3">
+              <Pressable
+                className="w-20 h-20 rounded-full items-center justify-center mb-2"
+                onPress={cancelRecording}
+                style={{
+                  backgroundColor: '#525252',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 8,
+                }}
+              >
+                <Ionicons name="close" size={40} color="#ffffff" />
+              </Pressable>
+              <Text className="text-sm font-semibold" style={{ color: textColor }}>
+                キャンセル
+              </Text>
+            </View>
+          </View>
+        </View>
       )}
     </View>
   );

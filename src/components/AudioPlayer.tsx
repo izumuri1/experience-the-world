@@ -7,12 +7,14 @@ interface AudioPlayerProps {
   audioUri: string;
   showDeleteButton?: boolean;
   onDelete?: () => void;
+  variant?: 'light' | 'dark'; // light: 白背景用、dark: 黒背景用
 }
 
 export default function AudioPlayer({
   audioUri,
   showDeleteButton = false,
   onDelete,
+  variant = 'dark',
 }: AudioPlayerProps) {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -30,18 +32,32 @@ export default function AudioPlayer({
 
   // サウンドの読み込み
   useEffect(() => {
+    let isMounted = true;
+    let currentSound: Audio.Sound | null = null;
+
     const loadSound = async () => {
       try {
         const { sound: newSound } = await Audio.Sound.createAsync(
           { uri: audioUri },
           { shouldPlay: false },
-          onPlaybackStatusUpdate
+          (status) => {
+            if (!isMounted) return;
+            onPlaybackStatusUpdate(status);
+          }
         );
+
+        if (!isMounted) {
+          // コンポーネントがアンマウントされていたらサウンドを解放
+          await newSound.unloadAsync();
+          return;
+        }
+
+        currentSound = newSound;
         setSound(newSound);
 
         // 再生時間を取得
         const status = await newSound.getStatusAsync();
-        if (status.isLoaded && status.durationMillis) {
+        if (isMounted && status.isLoaded && status.durationMillis) {
           setDuration(status.durationMillis);
         }
       } catch (error) {
@@ -53,11 +69,16 @@ export default function AudioPlayer({
 
     // クリーンアップ
     return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
+      isMounted = false;
+
       if (positionUpdateInterval.current) {
         clearInterval(positionUpdateInterval.current);
+        positionUpdateInterval.current = null;
+      }
+
+      if (currentSound) {
+        currentSound.stopAsync().catch(() => {});
+        currentSound.unloadAsync().catch(() => {});
       }
     };
   }, [audioUri]);
@@ -89,15 +110,13 @@ export default function AudioPlayer({
 
       if (status.isLoaded) {
         if (isPlaying) {
-          // 一時停止
-          await sound.pauseAsync();
+          // 停止（一時停止して先頭に戻す）
+          await sound.stopAsync();
+          await sound.setPositionAsync(0);
           setIsPlaying(false);
+          setPosition(0);
         } else {
-          // 再生開始または再開
-          if (position >= duration) {
-            // 最後まで再生済みの場合は最初から
-            await sound.setPositionAsync(0);
-          }
+          // 再生開始
           await sound.playAsync();
           setIsPlaying(true);
         }
@@ -108,9 +127,14 @@ export default function AudioPlayer({
   };
 
   // 削除ボタン
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (sound) {
-      sound.unloadAsync();
+      try {
+        await sound.stopAsync();
+        await sound.unloadAsync();
+      } catch (error) {
+        console.error('音声削除エラー:', error);
+      }
     }
     if (onDelete) {
       onDelete();
@@ -120,15 +144,30 @@ export default function AudioPlayer({
   // 進捗バーの割合
   const progress = duration > 0 ? (position / duration) * 100 : 0;
 
+  // バリアントに応じた色設定
+  const colors = variant === 'light'
+    ? {
+        background: 'rgba(0, 0, 0, 0.05)',
+        text: '#1f2937',
+        progressBg: 'rgba(0, 0, 0, 0.1)',
+      }
+    : {
+        background: 'rgba(255, 255, 255, 0.1)',
+        text: '#ffffff',
+        progressBg: 'rgba(255, 255, 255, 0.2)',
+      };
+
   return (
-    <View className="bg-white/10 rounded-lg p-3 flex-row items-center">
-      {/* 再生/一時停止ボタン */}
+    <View className="rounded-lg p-3 flex-row items-center" style={{ backgroundColor: colors.background }}>
+      {/* 再生/停止ボタン */}
       <Pressable
-        className="w-10 h-10 rounded-full bg-secondary-500 items-center justify-center mr-3"
+        className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${
+          isPlaying ? 'bg-red-500' : 'bg-secondary-500'
+        }`}
         onPress={togglePlayback}
       >
         <Ionicons
-          name={isPlaying ? 'pause' : 'play'}
+          name={isPlaying ? 'stop' : 'play'}
           size={20}
           color="#ffffff"
         />
@@ -137,7 +176,7 @@ export default function AudioPlayer({
       {/* 進捗バーと時間表示 */}
       <View className="flex-1">
         {/* 進捗バー */}
-        <View className="h-1 bg-white/20 rounded-full overflow-hidden mb-1">
+        <View className="h-1 rounded-full overflow-hidden mb-1" style={{ backgroundColor: colors.progressBg }}>
           <View
             className="h-full bg-secondary-500"
             style={{ width: `${progress}%` }}
@@ -145,7 +184,7 @@ export default function AudioPlayer({
         </View>
 
         {/* 時間表示 */}
-        <Text className="text-white text-xs">
+        <Text className="text-xs" style={{ color: colors.text }}>
           {formatTime(position)} / {formatTime(duration)}
         </Text>
       </View>
@@ -153,10 +192,13 @@ export default function AudioPlayer({
       {/* 削除ボタン（オプション） */}
       {showDeleteButton && (
         <Pressable
-          className="w-10 h-10 rounded-full bg-red-500/80 items-center justify-center ml-3"
+          className="w-10 h-10 rounded-full items-center justify-center ml-3"
           onPress={handleDelete}
+          style={{
+            backgroundColor: '#dc2626',
+          }}
         >
-          <Ionicons name="trash" size={18} color="#ffffff" />
+          <Ionicons name="trash" size={20} color="#ffffff" />
         </Pressable>
       )}
     </View>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, Image, Pressable, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AudioPlayer from '../components/AudioPlayer';
+import AudioRecorder from '../components/AudioRecorder';
 import { db } from '../database/DatabaseService';
 import { mediaService } from '../services/MediaService';
 import type { Experience } from '../types/models';
@@ -26,6 +27,8 @@ export default function ExperienceDetailScreen({
   onDelete,
 }: ExperienceDetailScreenProps) {
   const [deleting, setDeleting] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioMemos, setAudioMemos] = useState<string[]>(experience.audioMemos);
   // 日時のフォーマット
   const appFormatDate = (date: Date): string => {
     const year = date.getFullYear();
@@ -52,7 +55,38 @@ export default function ExperienceDetailScreen({
     return weatherMap[condition] || 'cloud';
   };
 
-  // 削除処理
+  // 音声メモ録音完了時の処理
+  const handleRecordingComplete = async (uri: string) => {
+    try {
+      // メディアファイルを保存
+      const audioPath = await mediaService.appSaveAudio(
+        experience.id,
+        uri,
+        'audio_memo'
+      );
+
+      // DBに保存
+      await db.appCreateMediaFile(experience.id, 'audio_memo', audioPath);
+
+      // ローカルステートを更新
+      setAudioMemos([...audioMemos, audioPath]);
+      setIsRecording(false);
+
+      Alert.alert('成功', '音声メモを追加しました');
+    } catch (error) {
+      console.error('音声メモ保存エラー:', error);
+      Alert.alert('エラー', '音声メモの保存に失敗しました');
+      setIsRecording(false);
+    }
+  };
+
+  // 音声メモ削除（AudioPlayerの削除ボタンから呼ばれる）
+  const handleDeleteAudioMemo = (audioUri: string) => {
+    // ローカルステートから削除
+    setAudioMemos(audioMemos.filter((uri) => uri !== audioUri));
+  };
+
+  // 体験削除処理
   const appHandleDelete = () => {
     Alert.alert(
       '削除確認',
@@ -175,16 +209,56 @@ export default function ExperienceDetailScreen({
           )}
 
           {/* 音声メモ */}
-          {experience.audioMemos.length > 0 && (
-            <View className="mb-4">
-              <Text className="text-gray-700 text-sm font-bold mb-2">音声メモ</Text>
-              {experience.audioMemos.map((audio, index) => (
-                <View key={index} className="mb-2">
-                  <AudioPlayer audioUri={audio} />
-                </View>
-              ))}
+          <View className="mb-4">
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="text-gray-700 text-sm font-bold">音声メモ</Text>
+              {!isRecording && (
+                <Pressable
+                  className="bg-primary-500 px-3 py-1 rounded-lg"
+                  onPress={() => setIsRecording(true)}
+                >
+                  <View className="flex-row items-center">
+                    <Ionicons name="mic" size={16} color="#ffffff" />
+                    <Text className="text-white text-xs ml-1 font-semibold">録音</Text>
+                  </View>
+                </Pressable>
+              )}
             </View>
-          )}
+
+            {/* 録音UI */}
+            {isRecording && (
+              <View className="mb-3 bg-primary-50 rounded-xl p-4">
+                <AudioRecorder
+                  onRecordingComplete={handleRecordingComplete}
+                  maxDuration={180000}
+                  textColor="#1f2937"
+                  backgroundColor="#f0f9ff"
+                />
+                <Pressable
+                  className="mt-2"
+                  onPress={() => setIsRecording(false)}
+                >
+                  <Text className="text-gray-600 text-xs text-center">キャンセル</Text>
+                </Pressable>
+              </View>
+            )}
+
+            {/* 既存の音声メモリスト */}
+            {audioMemos.length > 0 ? (
+              audioMemos.map((audio, index) => (
+                <View key={index} className="mb-2">
+                  <AudioPlayer
+                    audioUri={audio}
+                    showDeleteButton={true}
+                    onDelete={() => handleDeleteAudioMemo(audio)}
+                    variant="light"
+                  />
+                </View>
+              ))
+            ) : !isRecording ? (
+              <Text className="text-gray-500 text-sm">音声メモはありません</Text>
+            ) : null}
+          </View>
 
           {/* 環境音 */}
           {experience.ambientSounds.length > 0 && (
@@ -192,7 +266,7 @@ export default function ExperienceDetailScreen({
               <Text className="text-gray-700 text-sm font-bold mb-2">環境音</Text>
               {experience.ambientSounds.map((sound, index) => (
                 <View key={index} className="mb-2">
-                  <AudioPlayer audioUri={sound} />
+                  <AudioPlayer audioUri={sound} variant="light" />
                 </View>
               ))}
             </View>

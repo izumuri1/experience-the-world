@@ -9,6 +9,7 @@ import { weatherService } from '../services/WeatherService';
 import { db } from '../database/DatabaseService';
 import { mediaService } from '../services/MediaService';
 import { AMBIENT_SOUND_DURATION } from '../constants/config';
+import AudioRecorder from '../components/AudioRecorder';
 import type { Location as AppLocation, Weather } from '../types/models';
 
 interface CameraScreenProps {
@@ -19,6 +20,8 @@ export default function CameraScreen({ onClose }: CameraScreenProps) {
   const [facing, setFacing] = useState<CameraType>('back');
   const [permission, requestPermission] = useCameraPermissions();
   const [isCapturing, setIsCapturing] = useState(false);
+  const [showAudioRecorder, setShowAudioRecorder] = useState(false);
+  const [currentExperienceId, setCurrentExperienceId] = useState<string | null>(null);
   const cameraRef = useRef<CameraView>(null);
 
   // カメラパーミッションのチェック
@@ -49,6 +52,33 @@ export default function CameraScreen({ onClose }: CameraScreenProps) {
   // カメラの前後切り替え
   const toggleCameraFacing = () => {
     setFacing((current) => (current === 'back' ? 'front' : 'back'));
+  };
+
+  // 音声メモ録音完了時の処理
+  const handleAudioRecordingComplete = async (uri: string) => {
+    if (!currentExperienceId) return;
+
+    try {
+      // メディアファイルを保存
+      const audioPath = await mediaService.appSaveAudio(
+        currentExperienceId,
+        uri,
+        'audio_memo'
+      );
+
+      // DBに保存
+      await db.appCreateMediaFile(currentExperienceId, 'audio_memo', audioPath);
+
+      // 完了メッセージ
+      Alert.alert('✅ 録音完了', '音声メモを保存しました！', [
+        { text: 'OK', onPress: () => onClose() },
+      ]);
+    } catch (error) {
+      console.error('音声メモ保存エラー:', error);
+      Alert.alert('❌ エラー', '音声メモの保存に失敗しました', [
+        { text: 'OK', onPress: () => onClose() },
+      ]);
+    }
   };
 
   // 環境音を3秒間録音
@@ -166,15 +196,24 @@ export default function CameraScreen({ onClose }: CameraScreenProps) {
         await db.appUpsertVisitedCountry(locationData.countryCode);
       }
 
-      // 成功メッセージ
+      // 成功メッセージ + 音声メモ録音の確認
       Alert.alert(
         '✅ 保存完了',
-        '写真と体験が記録されました！',
+        '写真と体験が記録されました！\n音声メモを追加しますか？',
         [
           {
-            text: 'OK',
+            text: '後で追加',
+            style: 'cancel',
             onPress: () => {
               onClose();
+            },
+          },
+          {
+            text: '今すぐ録音',
+            onPress: () => {
+              // 録音UIを表示
+              setCurrentExperienceId(experienceId);
+              setShowAudioRecorder(true);
             },
           },
         ]
@@ -192,7 +231,35 @@ export default function CameraScreen({ onClose }: CameraScreenProps) {
 
   return (
     <View className="flex-1 bg-black">
-      <CameraView ref={cameraRef} className="flex-1" facing={facing}>
+      {/* 音声録音モード */}
+      {showAudioRecorder ? (
+        <View className="flex-1 bg-neutral-900 items-center justify-center px-6">
+          <View className="mb-8">
+            <Text className="text-white text-2xl font-bold text-center mb-2">
+              音声メモを録音
+            </Text>
+            <Text className="text-gray-400 text-center">
+              思い出を音声で記録しましょう
+            </Text>
+          </View>
+
+          <AudioRecorder
+            onRecordingComplete={handleAudioRecordingComplete}
+            maxDuration={180000}
+          />
+
+          <Pressable
+            className="mt-8 bg-neutral-800 px-6 py-3 rounded-lg"
+            onPress={() => {
+              setShowAudioRecorder(false);
+              onClose();
+            }}
+          >
+            <Text className="text-white font-semibold">スキップして閉じる</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <CameraView ref={cameraRef} className="flex-1" facing={facing}>
         {/* 閉じるボタン */}
         {!isCapturing && (
           <View className="absolute top-0 left-0 right-0 pt-12 px-4">
@@ -256,7 +323,8 @@ export default function CameraScreen({ onClose }: CameraScreenProps) {
             </View>
           </View>
         )}
-      </CameraView>
+        </CameraView>
+      )}
     </View>
   );
 }
