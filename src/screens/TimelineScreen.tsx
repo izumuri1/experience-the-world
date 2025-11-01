@@ -88,7 +88,7 @@ export default function TimelineScreen({
   if (loading) {
     return (
       <View className="flex-1 bg-gray-50 items-center justify-center">
-        <ActivityIndicator size="large" color="#3388ff" />
+        <ActivityIndicator size={48} color="#3388ff" />
         <Text className="text-gray-600 text-base mt-4">読み込み中...</Text>
       </View>
     );

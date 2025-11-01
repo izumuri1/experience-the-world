@@ -11,7 +11,11 @@ import { mediaService } from '../services/MediaService';
 import { AMBIENT_SOUND_DURATION } from '../constants/config';
 import type { Location as AppLocation, Weather } from '../types/models';
 
-export default function CameraScreen() {
+interface CameraScreenProps {
+  onClose: () => void;
+}
+
+export default function CameraScreen({ onClose }: CameraScreenProps) {
   const [facing, setFacing] = useState<CameraType>('back');
   const [permission, requestPermission] = useCameraPermissions();
   const [isCapturing, setIsCapturing] = useState(false);
@@ -21,7 +25,7 @@ export default function CameraScreen() {
   if (!permission) {
     return (
       <View className="flex-1 bg-neutral-900 items-center justify-center">
-        <ActivityIndicator size="large" color="#3388ff" />
+        <ActivityIndicator size={48} color="#3388ff" />
       </View>
     );
   }
@@ -173,8 +177,7 @@ export default function CameraScreen() {
           {
             text: 'OK',
             onPress: () => {
-              // ホーム画面に戻る（実装後に有効化）
-              // navigation.goBack();
+              onClose();
             },
           },
         ]
@@ -196,7 +199,7 @@ export default function CameraScreen() {
         {/* 撮影中のオーバーレイ */}
         {isCapturing && (
           <View className="absolute inset-0 bg-black/50 items-center justify-center">
-            <ActivityIndicator size="large" color="#ffffff" />
+            <ActivityIndicator size={48} color="#ffffff" />
             <View className="flex-row items-center mt-4">
               <Ionicons name="camera" size={24} color="#ffffff" />
               <Text className="text-white text-lg ml-2">記録中...</Text>

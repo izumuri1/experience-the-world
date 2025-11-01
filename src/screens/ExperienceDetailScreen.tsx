@@ -26,7 +26,6 @@ export default function ExperienceDetailScreen({
   onDelete,
 }: ExperienceDetailScreenProps) {
   const [deleting, setDeleting] = useState(false);
-
   // 日時のフォーマット
   const appFormatDate = (date: Date): string => {
     const year = date.getFullYear();
