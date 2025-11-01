@@ -193,6 +193,19 @@ export default function CameraScreen({ onClose }: CameraScreenProps) {
   return (
     <View className="flex-1 bg-black">
       <CameraView ref={cameraRef} className="flex-1" facing={facing}>
+        {/* 閉じるボタン */}
+        {!isCapturing && (
+          <View className="absolute top-0 left-0 right-0 pt-12 px-4">
+            <Pressable
+              className="bg-neutral-800/70 w-10 h-10 rounded-full items-center justify-center"
+              onPress={onClose}
+              hitSlop={8}
+            >
+              <Ionicons name="close" size={28} color="#ffffff" />
+            </Pressable>
+          </View>
+        )}
+
         {/* 撮影中のオーバーレイ */}
         {isCapturing && (
           <View className="absolute inset-0 bg-black/50 items-center justify-center">

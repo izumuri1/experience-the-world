@@ -16,6 +16,7 @@ export default function App() {
   const [showTimeline, setShowTimeline] = useState(false);
   const [showCountries, setShowCountries] = useState(false);
   const [selectedExperience, setSelectedExperience] = useState<Experience | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0); // HomeScreenの再読み込み用
 
   useEffect(() => {
     async function appPrepare() {
@@ -56,8 +57,31 @@ export default function App() {
   const handleExperienceDelete = () => {
     setSelectedExperience(null);
     setShowTimeline(false);
+    // ホーム画面の統計を更新
+    setRefreshKey((prev) => prev + 1);
     // タイムラインを再度開く（データを再読み込み）
     setTimeout(() => setShowTimeline(true), 100);
+  };
+
+  // カメラを閉じる
+  const handleCameraClose = () => {
+    setShowCamera(false);
+    // ホーム画面の統計を更新
+    setRefreshKey((prev) => prev + 1);
+  };
+
+  // タイムラインを閉じる
+  const handleTimelineClose = () => {
+    setShowTimeline(false);
+    // ホーム画面の統計を更新
+    setRefreshKey((prev) => prev + 1);
+  };
+
+  // 訪問国画面を閉じる
+  const handleCountriesClose = () => {
+    setShowCountries(false);
+    // ホーム画面の統計を更新
+    setRefreshKey((prev) => prev + 1);
   };
 
   // エラー発生時の表示
@@ -103,6 +127,7 @@ export default function App() {
     <>
       {/* ホーム画面 */}
       <HomeScreen
+        key={refreshKey}
         onCameraPress={() => setShowCamera(true)}
         onTimelinePress={() => setShowTimeline(true)}
         onCountriesPress={() => setShowCountries(true)}
@@ -114,7 +139,7 @@ export default function App() {
         animationType="slide"
         presentationStyle="fullScreen"
       >
-        <CameraScreen onClose={() => setShowCamera(false)} />
+        <CameraScreen onClose={handleCameraClose} />
       </Modal>
 
       {/* タイムラインモーダル */}
@@ -125,7 +150,7 @@ export default function App() {
       >
         <TimelineScreen
           onExperiencePress={handleExperiencePress}
-          onClose={() => setShowTimeline(false)}
+          onClose={handleTimelineClose}
         />
       </Modal>
 
@@ -150,7 +175,7 @@ export default function App() {
         animationType="slide"
         presentationStyle="fullScreen"
       >
-        <CountriesScreen onClose={() => setShowCountries(false)} />
+        <CountriesScreen onClose={handleCountriesClose} />
       </Modal>
     </>
   );
