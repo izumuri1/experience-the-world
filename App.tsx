@@ -6,12 +6,14 @@ import HomeScreen from './src/screens/HomeScreen';
 import CameraScreen from './src/screens/CameraScreen';
 import TimelineScreen from './src/screens/TimelineScreen';
 import ExperienceDetailScreen from './src/screens/ExperienceDetailScreen';
+import CountriesScreen from './src/screens/CountriesScreen';
 import type { Experience } from './src/types/models';
 
 export default function App() {
   const [isReady, setIsReady] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
+  const [showCountries, setShowCountries] = useState(false);
   const [selectedExperience, setSelectedExperience] = useState<Experience | null>(null);
 
   useEffect(() => {
@@ -70,6 +72,7 @@ export default function App() {
       <HomeScreen
         onCameraPress={() => setShowCamera(true)}
         onTimelinePress={() => setShowTimeline(true)}
+        onCountriesPress={() => setShowCountries(true)}
       />
 
       {/* カメラモーダル */}
@@ -106,6 +109,15 @@ export default function App() {
             onDelete={handleExperienceDelete}
           />
         )}
+      </Modal>
+
+      {/* 訪問国モーダル */}
+      <Modal
+        visible={showCountries}
+        animationType="slide"
+        presentationStyle="fullScreen"
+      >
+        <CountriesScreen onClose={() => setShowCountries(false)} />
       </Modal>
     </>
   );

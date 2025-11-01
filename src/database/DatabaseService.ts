@@ -16,6 +16,7 @@ import {
 } from '../types';
 import { appMapExperienceRowToModel, appMapVisitedCountryRowToModel } from './mappers';
 import { DB_NAME, DEFAULT_USER_ID } from '../constants';
+import { getCountryName, getContinent } from '../utils/countries';
 
 class DatabaseService {
   private db: SQLite.SQLiteDatabase | null = null;
@@ -123,11 +124,35 @@ class DatabaseService {
     );
     const currentVersion = result?.version || 0;
 
-    // 現在はバージョン1のみ（将来的にマイグレーションを追加）
+    // バージョン1: 初期マイグレーション
     if (currentVersion < 1) {
       await this.db.runAsync(
         'INSERT INTO schema_version (version) VALUES (?)',
         [1]
+      );
+    }
+
+    // バージョン2: 訪問国の国名と大陸を更新
+    if (currentVersion < 2) {
+      const countries = await this.db.getAllAsync<VisitedCountryRow>(
+        'SELECT * FROM visited_countries'
+      );
+
+      for (const country of countries) {
+        const countryName = getCountryName(country.country_code);
+        const continent = getContinent(country.country_code);
+
+        await this.db.runAsync(
+          `UPDATE visited_countries
+           SET country_name = ?, continent = ?
+           WHERE country_code = ?`,
+          [countryName, continent, country.country_code]
+        );
+      }
+
+      await this.db.runAsync(
+        'INSERT INTO schema_version (version) VALUES (?)',
+        [2]
       );
     }
   }
@@ -179,10 +204,7 @@ class DatabaseService {
 
     // 訪問国を更新（位置情報がある場合のみ）
     if (data.location?.countryCode) {
-      await this.appUpsertVisitedCountry(
-        data.location.countryCode,
-        data.location.placeName || data.location.countryCode
-      );
+      await this.appUpsertVisitedCountry(data.location.countryCode);
     }
 
     return id;
@@ -208,6 +230,23 @@ class DatabaseService {
       ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [id, experienceId, fileType, filePath, null, null, now]
     );
+
+    // 写真の場合、該当する国のphoto_countを更新
+    if (fileType === 'photo') {
+      const experience = await this.db.getFirstAsync<ExperienceRow>(
+        'SELECT country_code FROM experiences WHERE id = ?',
+        [experienceId]
+      );
+
+      if (experience?.country_code) {
+        await this.db.runAsync(
+          `UPDATE visited_countries
+           SET photo_count = photo_count + 1, updated_at = ?
+           WHERE country_code = ?`,
+          [now, experience.country_code]
+        );
+      }
+    }
   }
 
   /**
@@ -266,13 +305,12 @@ class DatabaseService {
   /**
    * 訪問国をUPSERT
    */
-  async appUpsertVisitedCountry(
-    countryCode: string,
-    countryName: string
-  ): Promise<void> {
+  async appUpsertVisitedCountry(countryCode: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
     const now = Math.floor(Date.now() / 1000);
+    const countryName = getCountryName(countryCode);
+    const continent = getContinent(countryCode);
 
     const existing = await this.db.getFirstAsync<VisitedCountryRow>(
       'SELECT * FROM visited_countries WHERE country_code = ?',
@@ -295,7 +333,7 @@ class DatabaseService {
           first_visit, last_visit, visit_count, photo_count,
           created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [countryCode, countryName, null, now, now, 1, 0, now, now]
+        [countryCode, countryName, continent, now, now, 1, 0, now, now]
       );
     }
   }

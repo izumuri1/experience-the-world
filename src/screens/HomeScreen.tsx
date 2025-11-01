@@ -8,16 +8,17 @@
  */
 
 import { useEffect, useState } from 'react';
-import { View, Text, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { db } from '../database/DatabaseService';
 
 interface HomeScreenProps {
   onCameraPress: () => void;
   onTimelinePress: () => void;
+  onCountriesPress: () => void;
 }
 
-export default function HomeScreen({ onCameraPress, onTimelinePress }: HomeScreenProps) {
+export default function HomeScreen({ onCameraPress, onTimelinePress, onCountriesPress }: HomeScreenProps) {
   const [stats, setStats] = useState({
     experienceCount: 0,
     countryCount: 0,
@@ -55,84 +56,108 @@ export default function HomeScreen({ onCameraPress, onTimelinePress }: HomeScree
 
   return (
     <View className="flex-1 bg-primary-500">
-      {/* ヘッダー */}
-      <View className="pt-16 pb-8 px-6">
-        <Text className="text-white text-2xl font-bold mb-2 text-center">
-          Experience the World
-        </Text>
-        <Text className="text-secondary-500 text-lg text-center">
-          瞬間を捉える、体験が蘇る
-        </Text>
-      </View>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 20 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ヘッダー */}
+        <View className="pt-16 pb-8 px-6">
+          <Text className="text-white text-2xl font-bold mb-2 text-center">
+            Experience the World
+          </Text>
+          <Text className="text-secondary-500 text-lg text-center">
+            瞬間を捉える、体験が蘇る
+          </Text>
+        </View>
 
-      {/* 統計カード */}
-      <View className="px-6 mb-12">
-        <View className="bg-white rounded-2xl p-6 shadow-lg">
-          <View className="flex-row justify-around">
-            {/* 体験数 */}
-            <View className="items-center">
-              <Ionicons name="camera-outline" size={32} color="#3388ff" />
-              <Text className="text-3xl font-bold text-gray-900 mt-2">
-                {stats.experienceCount}
-              </Text>
-              <Text className="text-gray-600 text-sm">思い出</Text>
-            </View>
+        {/* 統計カード */}
+        <View className="px-6 mb-12">
+          <View className="bg-white rounded-2xl p-6 shadow-lg">
+            <View className="flex-row justify-around">
+              {/* 体験数 */}
+              <View className="items-center">
+                <Ionicons name="camera-outline" size={32} color="#3388ff" />
+                <Text className="text-3xl font-bold text-gray-900 mt-2">
+                  {stats.experienceCount}
+                </Text>
+                <Text className="text-gray-600 text-sm">思い出</Text>
+              </View>
 
-            {/* 訪問国数 */}
-            <View className="items-center">
-              <Ionicons name="earth-outline" size={32} color="#3388ff" />
-              <Text className="text-3xl font-bold text-gray-900 mt-2">
-                {stats.countryCount}
-              </Text>
-              <Text className="text-gray-600 text-sm">訪問国</Text>
+              {/* 訪問国数 */}
+              <View className="items-center">
+                <Ionicons name="earth-outline" size={32} color="#3388ff" />
+                <Text className="text-3xl font-bold text-gray-900 mt-2">
+                  {stats.countryCount}
+                </Text>
+                <Text className="text-gray-600 text-sm">訪問国</Text>
+              </View>
             </View>
           </View>
         </View>
-      </View>
 
-      {/* メインボタン */}
-      <View className="flex-1 px-6 justify-center">
-        {/* カメラボタン */}
-        <Pressable
-          className="bg-white rounded-2xl py-6 px-8 mb-4 shadow-lg active:opacity-80"
-          onPress={onCameraPress}
-        >
-          <View className="flex-row items-center justify-center">
-            <Ionicons name="camera" size={32} color="#3388ff" />
-            <Text className="text-primary-500 text-2xl font-bold ml-4">
-              写真を撮る
+        {/* メインボタン */}
+        <View className="px-6">
+          {/* カメラボタン */}
+          <Pressable
+            className="bg-white rounded-2xl py-6 px-8 mb-4 shadow-lg active:opacity-80"
+            onPress={onCameraPress}
+          >
+            <View className="flex-row items-center justify-center">
+              <Ionicons name="camera" size={32} color="#3388ff" />
+              <Text className="text-primary-500 text-2xl font-bold ml-4">
+                写真を撮る
+              </Text>
+            </View>
+            <Text className="text-gray-600 text-center mt-2">
+              新しい体験を記録しましょう
             </Text>
-          </View>
-          <Text className="text-gray-600 text-center mt-2">
-            新しい体験を記録しましょう
-          </Text>
-        </Pressable>
+          </Pressable>
 
-        {/* タイムラインボタン */}
-        <Pressable
-          className="bg-white rounded-2xl py-6 px-8 shadow-lg active:opacity-80"
-          onPress={onTimelinePress}
-        >
-          <View className="flex-row items-center justify-center">
-            <Ionicons name="time-outline" size={32} color="#3388ff" />
-            <Text className="text-primary-500 text-2xl font-bold ml-4">
-              タイムライン
+          {/* タイムラインボタン */}
+          <Pressable
+            className="bg-white rounded-2xl py-6 px-8 mb-4 shadow-lg active:opacity-80"
+            onPress={onTimelinePress}
+          >
+            <View className="flex-row items-center justify-center">
+              <Ionicons name="time-outline" size={32} color="#3388ff" />
+              <Text className="text-primary-500 text-2xl font-bold ml-4">
+                タイムライン
+              </Text>
+            </View>
+            <Text className="text-gray-600 text-center mt-2">
+              {stats.experienceCount > 0
+                ? '思い出を振り返る'
+                : 'まだ記録がありません'}
             </Text>
-          </View>
-          <Text className="text-gray-600 text-center mt-2">
-            {stats.experienceCount > 0
-              ? '思い出を振り返る'
-              : 'まだ記録がありません'}
-          </Text>
-        </Pressable>
-      </View>
+          </Pressable>
 
-      {/* フッター */}
-      <View className="pb-8 px-6">
-        <Text className="text-primary-100 text-center text-sm">
-          Phase 1 MVP - ローカルストレージ版
-        </Text>
-      </View>
+          {/* 訪問国ボタン */}
+          <Pressable
+            className="bg-white rounded-2xl py-6 px-8 mb-4 shadow-lg active:opacity-80"
+            onPress={onCountriesPress}
+          >
+            <View className="flex-row items-center justify-center">
+              <Ionicons name="earth" size={32} color="#3388ff" />
+              <Text className="text-primary-500 text-2xl font-bold ml-4">
+                訪問国
+              </Text>
+            </View>
+            <Text className="text-gray-600 text-center mt-2">
+              {stats.countryCount > 0
+                ? `${stats.countryCount}ヶ国を訪問`
+                : 'まだ訪問国がありません'}
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* フッター */}
+        <View className="pt-8 px-6">
+          <Text className="text-primary-100 text-center text-sm">
+            Phase 1 MVP - ローカルストレージ版
+          </Text>
+        </View>
+      </ScrollView>
     </View>
   );
 }
