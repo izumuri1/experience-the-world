@@ -621,9 +621,32 @@ const appValidateUser = (data: unknown) => {
 
 ### 開発環境
 
-- **WSL Ubuntu 22.04** を使用
+**重要**: このプロジェクトは **WSL (Ubuntu 22.04) 側で統一** して開発します。
+
+**現在の構成（✅ 正常動作）:**
+- VS Code: WSL側で起動（Remote - WSL拡張機能を使用）
+- Claude Code拡張機能: WSL側のVS Codeにインストール
+- 統合ターミナル: WSL (Ubuntu) で動作
+- CLI版Claude Code: WSL内にインストール
+- ファイルシステム: `/home/izumuri/the-world`
+
+**以前の構成（❌ 動作しない）:**
+- VS Code: Windows側で起動
+- Claude Code拡張機能: Windows側にインストール
+- ファイルアクセス: `\\wsl.localhost\Ubuntu-22.04\...` 経由
+- **問題**: Windows側の拡張機能がWSL内のCLIと通信できずエラー
+
+**セットアップ手順:**
+1. VS Codeで「Remote - WSL」拡張機能をインストール（Windows側）
+2. VS Codeのコマンドパレット（Ctrl+Shift+P）から「WSL: Connect to WSL」を選択
+3. WSL側でプロジェクトフォルダを開く: `/home/izumuri/the-world`
+4. WSL側のVS CodeにClaude Code拡張機能をインストール
+5. 統合ターミナルがUbuntuで動作していることを確認: `uname -a`
+
+**開発時の注意:**
 - npmコマンドはWSL内で実行
-- ファイル編集はWindows側（Claude Code）でも可能
+- gitコマンドもWSL内で実行
+- すべての操作をWSL側で統一することで、環境の不整合を防ぐ
 
 ### ブラウザサポート
 
@@ -705,6 +728,44 @@ const appValidateUser = (data: unknown) => {
 ---
 
 ## トラブルシューティング
+
+### Claude Code拡張機能の問題（WSL環境）
+
+**問題**: Claude Code拡張機能が動作しない、エラーが発生する
+
+**症状:**
+- Windows側のVS CodeでClaude Code拡張機能をインストールしたが動作しない
+- WSL内のCLIと通信できないエラーが表示される
+- コマンドが実行されない、応答がない
+
+**原因:**
+- Claude Code拡張機能をWindows側にインストールしている
+- WSL環境では、拡張機能もWSL側にインストールする必要がある
+
+**解決方法:**
+
+1. **VS CodeをWSL側で起動する**
+   - VS Codeのコマンドパレット（Ctrl+Shift+P）を開く
+   - 「WSL: Connect to WSL」を選択
+   - WSL側のVS Codeウィンドウが開く
+
+2. **WSL側でプロジェクトを開く**
+   - WSL側のVS Codeで「ファイル」→「フォルダーを開く」
+   - `/home/izumuri/the-world` を選択
+
+3. **Claude Code拡張機能をWSL側にインストール**
+   - 拡張機能タブを開く
+   - Claude Codeを検索
+   - 「Install in WSL: Ubuntu-22.04」ボタンをクリック
+
+4. **動作確認**
+   - 統合ターミナルで `uname -a` を実行してUbuntuであることを確認
+   - Claude Code拡張機能が正常に動作することを確認
+
+**確認ポイント:**
+- VS Codeの左下に「WSL: Ubuntu-22.04」と表示されているか
+- 統合ターミナルが `user@hostname:/home/izumuri/the-world$` のようなLinux形式か
+- Claude Code拡張機能が「WSL: Ubuntu-22.04 - Installed」と表示されているか
 
 ### ファイル編集ツールの問題
 

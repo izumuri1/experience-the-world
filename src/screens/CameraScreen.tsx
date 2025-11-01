@@ -163,10 +163,7 @@ export default function CameraScreen({ onClose }: CameraScreenProps) {
 
       // 8. 訪問国を記録（位置情報がある場合）
       if (locationData && locationData.countryCode) {
-        await db.appUpsertVisitedCountry(
-          locationData.countryCode,
-          locationData.placeName
-        );
+        await db.appUpsertVisitedCountry(locationData.countryCode);
       }
 
       // 成功メッセージ

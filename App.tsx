@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, View, Modal } from 'react-native';
+import { ActivityIndicator, View, Modal, Text, TouchableOpacity } from 'react-native';
 import { db } from './src/database/DatabaseService';
 import { mediaService } from './src/services/MediaService';
 import HomeScreen from './src/screens/HomeScreen';
@@ -11,6 +11,7 @@ import type { Experience } from './src/types/models';
 
 export default function App() {
   const [isReady, setIsReady] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
   const [showCountries, setShowCountries] = useState(false);
@@ -28,6 +29,7 @@ export default function App() {
         setIsReady(true);
       } catch (error) {
         console.error('Failed to initialize app:', error);
+        setInitError(error instanceof Error ? error.message : 'アプリの初期化に失敗しました');
       }
     }
 
@@ -58,6 +60,37 @@ export default function App() {
     setTimeout(() => setShowTimeline(true), 100);
   };
 
+  // エラー発生時の表示
+  if (initError) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white px-8">
+        <Text className="text-xl font-bold text-gray-900 mb-4">
+          初期化エラー
+        </Text>
+        <Text className="text-base text-gray-700 text-center mb-8">
+          {initError}
+        </Text>
+        <TouchableOpacity
+          onPress={() => {
+            setInitError(null);
+            setIsReady(false);
+            // アプリを再初期化
+            db.appInitialize()
+              .then(() => mediaService.appInitializeDirectories())
+              .then(() => setIsReady(true))
+              .catch((error) => {
+                setInitError(error instanceof Error ? error.message : 'アプリの初期化に失敗しました');
+              });
+          }}
+          className="bg-primary-500 px-6 py-3 rounded-lg"
+        >
+          <Text className="text-white font-semibold">再試行</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // ローディング中の表示
   if (!isReady) {
     return (
       <View className="flex-1 items-center justify-center bg-white">
