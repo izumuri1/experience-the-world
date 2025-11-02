@@ -7,6 +7,9 @@ import CameraScreen from './src/screens/CameraScreen';
 import TimelineScreen from './src/screens/TimelineScreen';
 import ExperienceDetailScreen from './src/screens/ExperienceDetailScreen';
 import CountriesScreen from './src/screens/CountriesScreen';
+import TripsScreen from './src/screens/TripsScreen';
+import TripFormScreen from './src/screens/TripFormScreen';
+import TripDetailScreen from './src/screens/TripDetailScreen';
 import type { Experience } from './src/types/models';
 
 export default function App() {
@@ -15,6 +18,10 @@ export default function App() {
   const [showCamera, setShowCamera] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
   const [showCountries, setShowCountries] = useState(false);
+  const [showTrips, setShowTrips] = useState(false);
+  const [showTripForm, setShowTripForm] = useState(false);
+  const [showTripDetail, setShowTripDetail] = useState(false);
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [selectedExperience, setSelectedExperience] = useState<Experience | null>(null);
   const [refreshKey, setRefreshKey] = useState(0); // HomeScreenの再読み込み用
 
@@ -84,6 +91,12 @@ export default function App() {
     setRefreshKey((prev) => prev + 1);
   };
 
+  // 旅行画面を閉じる
+  const handleTripsClose = () => {
+    setShowTrips(false);
+    setRefreshKey((prev) => prev + 1);
+  };
+
   // エラー発生時の表示
   if (initError) {
     return (
@@ -131,6 +144,7 @@ export default function App() {
         onCameraPress={() => setShowCamera(true)}
         onTimelinePress={() => setShowTimeline(true)}
         onCountriesPress={() => setShowCountries(true)}
+        onTripsPress={() => setShowTrips(true)}
       />
 
       {/* カメラモーダル */}
@@ -176,6 +190,33 @@ export default function App() {
         presentationStyle="fullScreen"
       >
         <CountriesScreen onClose={handleCountriesClose} />
+      </Modal>
+
+      {/* 旅行一覧モーダル */}
+      <Modal
+        visible={showTrips}
+        animationType="slide"
+        presentationStyle="fullScreen"
+      >
+        <TripsScreen />
+      </Modal>
+
+      {/* 旅行作成・編集モーダル */}
+      <Modal
+        visible={showTripForm}
+        animationType="slide"
+        presentationStyle="fullScreen"
+      >
+        <TripFormScreen />
+      </Modal>
+
+      {/* 旅行詳細モーダル */}
+      <Modal
+        visible={showTripDetail}
+        animationType="slide"
+        presentationStyle="fullScreen"
+      >
+        {selectedTripId && <TripDetailScreen />}
       </Modal>
     </>
   );

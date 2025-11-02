@@ -16,9 +16,10 @@ interface HomeScreenProps {
   onCameraPress: () => void;
   onTimelinePress: () => void;
   onCountriesPress: () => void;
+  onTripsPress: () => void;
 }
 
-export default function HomeScreen({ onCameraPress, onTimelinePress, onCountriesPress }: HomeScreenProps) {
+export default function HomeScreen({ onCameraPress, onTimelinePress, onCountriesPress, onTripsPress }: HomeScreenProps) {
   const [stats, setStats] = useState({
     experienceCount: 0,
     countryCount: 0,
@@ -147,6 +148,22 @@ export default function HomeScreen({ onCameraPress, onTimelinePress, onCountries
               {stats.countryCount > 0
                 ? `${stats.countryCount}ヶ国を訪問`
                 : 'まだ訪問国がありません'}
+            </Text>
+          </Pressable>
+
+          {/* 旅行ボタン */}
+          <Pressable
+            className="bg-white rounded-2xl py-6 px-8 mb-4 shadow-lg active:opacity-80"
+            onPress={onTripsPress}
+          >
+            <View className="flex-row items-center justify-center">
+              <Ionicons name="airplane" size={32} color="#3388ff" />
+              <Text className="text-primary-500 text-2xl font-bold ml-4">
+                旅行
+              </Text>
+            </View>
+            <Text className="text-gray-600 text-center mt-2">
+              旅行ごとに体験を整理
             </Text>
           </Pressable>
         </View>

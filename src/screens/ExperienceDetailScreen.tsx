@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Image, Pressable, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AudioPlayer from '../components/AudioPlayer';
@@ -29,6 +29,24 @@ export default function ExperienceDetailScreen({
   const [deleting, setDeleting] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [audioMemos, setAudioMemos] = useState<string[]>(experience.audioMemos);
+  const [tripTitle, setTripTitle] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadTripInfo();
+  }, [experience.tripId]);
+
+  const loadTripInfo = async () => {
+    if (experience.tripId) {
+      try {
+        const trip = await db.appGetTripById(experience.tripId);
+        if (trip) {
+          setTripTitle(trip.title);
+        }
+      } catch (error) {
+        console.error('Failed to load trip info:', error);
+      }
+    }
+  };
   // 日時のフォーマット
   const appFormatDate = (date: Date): string => {
     const year = date.getFullYear();
@@ -161,6 +179,16 @@ export default function ExperienceDetailScreen({
               {appFormatDate(experience.timestamp)}
             </Text>
           </View>
+
+          {/* 旅行情報 */}
+          {tripTitle && (
+            <View className="flex-row items-center mb-4">
+              <Ionicons name="airplane-outline" size={20} color="#3388ff" />
+              <Text className="text-gray-900 text-base ml-2">
+                {tripTitle}
+              </Text>
+            </View>
+          )}
 
           {/* 場所 */}
           {experience.location && (
