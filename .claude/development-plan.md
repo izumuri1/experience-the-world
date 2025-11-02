@@ -3672,6 +3672,46 @@ RLS (Row Level Security) ポリシー:
 1. `feat: TripsScreen実装 - 旅行一覧表示機能追加`
 2. `feat: TripFormScreen・TripDetailScreen実装 - 旅行CRUD完成`
 3. `feat: Step 9.5完了 - 旅行管理UI統合・HomeScreen/App.tsx/ExperienceDetailScreen連携`
+4. `fix: React Navigation依存を削除してモーダルベースナビゲーションに統一`
+
+### トラブルシューティング記録
+
+**React Navigation NavigationContainerエラー**
+- 問題: `useNavigation`使用時に「NavigationContainerが見つからない」エラー
+- 原因: モーダルベースアプローチでNavigationContainerをセットアップしていない
+- 解決策: `useNavigation`を完全削除し、propsでナビゲーションハンドラーを渡す設計に変更
+- 影響: TripsScreen、TripFormScreen、TripDetailScreenすべて修正
+
+**mediaFiles undefined エラー**
+- 問題: `Cannot read property 'find' of undefined`
+- 原因: Experience型のインポートパスが`../types`と`../types/models`で混在
+- 解決策: すべて`../types/models`に統一、オプショナルチェイニング追加（`mediaFiles?.find()`）
+
+**@babel/runtime 解決エラー**
+- 問題: Metroバンドラーのキャッシュ問題
+- 解決策: `npx expo start --clear`でキャッシュクリア、`rm -rf node_modules && npm install`
+
+### 動作確認完了
+
+✅ **実施日**: 2025年11月2日（午前）
+
+**テストシナリオ:**
+1. ホーム画面→旅行ボタンタップ→旅行一覧表示 ✅
+2. 旅行一覧→+ボタン→旅行作成フォーム表示 ✅
+3. 旅行作成→保存→旅行一覧に戻る ✅
+4. 旅行カードタップ→旅行詳細表示 ✅
+5. 旅行詳細→体験カードタップ→体験詳細表示 ✅
+6. 各画面の閉じるボタン→正常に遷移 ✅
+
+**確認事項:**
+- モーダルスタックのナビゲーション正常動作
+- 状態管理（selectedTripId等）正常動作
+- データ取得（旅行一覧、体験一覧）正常動作
+
+**今後の改善点:**
+- デザインの統一（ホーム画面の青基調に合わせる）
+- 旅行編集機能の実装（現在は未実装のアラート表示）
+- TripSelectorコンポーネントの統合（体験から旅行を選択）
 
 ---
 
