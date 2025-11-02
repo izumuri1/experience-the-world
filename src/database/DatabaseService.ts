@@ -655,6 +655,59 @@ class DatabaseService {
   }
 
   /**
+   * 旅行一覧を取得（UIコンポーネント用のシンプルな型）
+   */
+  async getAllTrips(): Promise<Array<{
+    id: string;
+    title: string;
+    start_date: string;
+    end_date: string | null;
+    companions: string | null;
+    purpose: string | null;
+    notes: string | null;
+  }>> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const rows = await this.db.getAllAsync<TripRow>(
+      'SELECT * FROM trips ORDER BY start_date DESC'
+    );
+
+    return rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      start_date: new Date(row.start_date * 1000).toISOString(),
+      end_date: row.end_date ? new Date(row.end_date * 1000).toISOString() : null,
+      companions: row.companions || null,
+      purpose: row.purpose || null,
+      notes: row.notes || null,
+    }));
+  }
+
+  /**
+   * 旅行IDに紐づく体験一覧を取得
+   */
+  async getExperiencesByTripId(tripId: string): Promise<Experience[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const rows = await this.db.getAllAsync<ExperienceRow>(
+      'SELECT * FROM experiences WHERE trip_id = ? ORDER BY timestamp DESC',
+      [tripId]
+    );
+
+    // メディアファイルを取得
+    const experiences: Experience[] = [];
+    for (const row of rows) {
+      const mediaFiles = await this.db.getAllAsync<MediaFileRow>(
+        'SELECT * FROM media_files WHERE experience_id = ?',
+        [row.id]
+      );
+      experiences.push(appMapExperienceRowToModel(row, mediaFiles));
+    }
+
+    return experiences;
+  }
+
+  /**
    * 旅行IDから旅行を取得
    */
   async appGetTripById(tripId: string): Promise<Trip | null> {
@@ -774,3 +827,4 @@ class DatabaseService {
 
 // シングルトンインスタンス
 export const db = new DatabaseService();
+export const databaseService = db; // 別名エクスポート（既存コードとの互換性のため）
