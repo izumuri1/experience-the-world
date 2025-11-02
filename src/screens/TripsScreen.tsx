@@ -7,7 +7,6 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 import { databaseService } from '../database/DatabaseService';
 
 interface Trip {
@@ -21,8 +20,13 @@ interface Trip {
   experience_count?: number;
 }
 
-export default function TripsScreen() {
-  const navigation = useNavigation();
+interface TripsScreenProps {
+  onClose: () => void;
+  onCreateTrip: () => void;
+  onTripPress: (tripId: string) => void;
+}
+
+export default function TripsScreen({ onClose, onCreateTrip, onTripPress }: TripsScreenProps) {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -61,11 +65,11 @@ export default function TripsScreen() {
   };
 
   const handleCreateTrip = () => {
-    navigation.navigate('TripForm' as never);
+    onCreateTrip();
   };
 
   const handleTripPress = (trip: Trip) => {
-    navigation.navigate('TripDetail' as never, { tripId: trip.id } as never);
+    onTripPress(trip.id);
   };
 
   const formatDate = (dateString: string) => {
@@ -161,7 +165,14 @@ export default function TripsScreen() {
       {/* ヘッダー */}
       <View className="bg-white border-b border-gray-200 px-4 pt-12 pb-4">
         <View className="flex-row items-center justify-between">
-          <Text className="text-2xl font-bold text-gray-800">旅行</Text>
+          <TouchableOpacity
+            onPress={onClose}
+            className="mr-4"
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="close" size={28} color="#374151" />
+          </TouchableOpacity>
+          <Text className="text-2xl font-bold text-gray-800 flex-1">旅行</Text>
           <TouchableOpacity
             className="bg-blue-600 rounded-full w-10 h-10 items-center justify-center"
             onPress={handleCreateTrip}

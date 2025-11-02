@@ -97,6 +97,48 @@ export default function App() {
     setRefreshKey((prev) => prev + 1);
   };
 
+  // 旅行作成画面を開く
+  const handleCreateTrip = () => {
+    setShowTrips(false);
+    setShowTripForm(true);
+  };
+
+  // 旅行作成画面を閉じる
+  const handleTripFormClose = () => {
+    setShowTripForm(false);
+    setSelectedTripId(null);
+    setShowTrips(true);
+    setRefreshKey((prev) => prev + 1);
+  };
+
+  // 旅行詳細を開く
+  const handleTripPress = (tripId: string) => {
+    setShowTrips(false);
+    setSelectedTripId(tripId);
+    setShowTripDetail(true);
+  };
+
+  // 旅行詳細を閉じる
+  const handleTripDetailClose = () => {
+    setShowTripDetail(false);
+    setSelectedTripId(null);
+    setShowTrips(true);
+    setRefreshKey((prev) => prev + 1);
+  };
+
+  // 旅行編集画面を開く
+  const handleEditTrip = (tripId: string) => {
+    setShowTripDetail(false);
+    setSelectedTripId(tripId);
+    setShowTripForm(true);
+  };
+
+  // 体験詳細を旅行詳細から開く
+  const handleExperiencePressFromTrip = (experience: Experience) => {
+    setShowTripDetail(false);
+    setSelectedExperience(experience);
+  };
+
   // エラー発生時の表示
   if (initError) {
     return (
@@ -198,7 +240,11 @@ export default function App() {
         animationType="slide"
         presentationStyle="fullScreen"
       >
-        <TripsScreen />
+        <TripsScreen
+          onClose={handleTripsClose}
+          onCreateTrip={handleCreateTrip}
+          onTripPress={handleTripPress}
+        />
       </Modal>
 
       {/* 旅行作成・編集モーダル */}
@@ -207,7 +253,10 @@ export default function App() {
         animationType="slide"
         presentationStyle="fullScreen"
       >
-        <TripFormScreen />
+        <TripFormScreen
+          onClose={handleTripFormClose}
+          tripId={selectedTripId || undefined}
+        />
       </Modal>
 
       {/* 旅行詳細モーダル */}
@@ -216,7 +265,14 @@ export default function App() {
         animationType="slide"
         presentationStyle="fullScreen"
       >
-        {selectedTripId && <TripDetailScreen />}
+        {selectedTripId && (
+          <TripDetailScreen
+            onClose={handleTripDetailClose}
+            onEditTrip={handleEditTrip}
+            onExperiencePress={handleExperiencePressFromTrip}
+            tripId={selectedTripId}
+          />
+        )}
       </Modal>
     </>
   );

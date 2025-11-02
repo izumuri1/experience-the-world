@@ -9,14 +9,15 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { databaseService } from '../database/DatabaseService';
 
-export default function TripFormScreen() {
-  const navigation = useNavigation();
-  const route = useRoute();
-  const tripId = (route.params as any)?.tripId;
+interface TripFormScreenProps {
+  onClose: () => void;
+  tripId?: string;
+}
+
+export default function TripFormScreen({ onClose, tripId }: TripFormScreenProps) {
   const isEdit = !!tripId;
 
   const [title, setTitle] = useState('');
@@ -78,7 +79,7 @@ export default function TripFormScreen() {
           purpose: purpose.trim() || undefined,
           notes: notes.trim() || undefined,
         });
-        navigation.goBack();
+        onClose();
       }
     } catch (error) {
       console.error('Failed to save trip:', error);
@@ -100,7 +101,7 @@ export default function TripFormScreen() {
       <View className="bg-white border-b border-gray-200 px-4 pt-12 pb-4">
         <View className="flex-row items-center justify-between">
           <TouchableOpacity
-            onPress={() => navigation.goBack()}
+            onPress={onClose}
             className="mr-4"
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >

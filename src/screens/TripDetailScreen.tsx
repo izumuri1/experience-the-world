@@ -9,9 +9,8 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
 import { databaseService } from '../database/DatabaseService';
-import type { Experience } from '../types';
+import type { Experience } from '../types/models';
 
 interface Trip {
   id: string;
@@ -29,10 +28,19 @@ interface TripCountry {
   firstVisitDate: Date;
 }
 
-export default function TripDetailScreen() {
-  const navigation = useNavigation();
-  const route = useRoute();
-  const tripId = (route.params as any)?.tripId;
+interface TripDetailScreenProps {
+  onClose: () => void;
+  onEditTrip: (tripId: string) => void;
+  onExperiencePress: (experience: Experience) => void;
+  tripId: string;
+}
+
+export default function TripDetailScreen({
+  onClose,
+  onEditTrip,
+  onExperiencePress,
+  tripId
+}: TripDetailScreenProps) {
 
   const [trip, setTrip] = useState<Trip | null>(null);
   const [experiences, setExperiences] = useState<Experience[]>([]);
@@ -65,7 +73,7 @@ export default function TripDetailScreen() {
   };
 
   const handleEditTrip = () => {
-    navigation.navigate('TripForm' as never, { tripId } as never);
+    onEditTrip(tripId);
   };
 
   const handleDeleteTrip = () => {
@@ -80,7 +88,7 @@ export default function TripDetailScreen() {
           onPress: async () => {
             try {
               await databaseService.appDeleteTrip(tripId);
-              navigation.goBack();
+              onClose();
             } catch (error) {
               console.error('Failed to delete trip:', error);
               Alert.alert('エラー', '旅行の削除に失敗しました');
@@ -89,10 +97,6 @@ export default function TripDetailScreen() {
         },
       ]
     );
-  };
-
-  const handleExperiencePress = (experience: Experience) => {
-    navigation.navigate('ExperienceDetail' as never, { id: experience.id } as never);
   };
 
   const formatDate = (date: Date) => {
@@ -111,12 +115,12 @@ export default function TripDetailScreen() {
   };
 
   const renderExperienceCard = ({ item }: { item: Experience }) => {
-    const photo = item.mediaFiles.find((m) => m.fileType === 'photo');
+    const photo = item.mediaFiles?.find((m) => m.fileType === 'photo');
 
     return (
       <TouchableOpacity
         className="bg-white rounded-xl mb-3 overflow-hidden"
-        onPress={() => handleExperiencePress(item)}
+        onPress={() => onExperiencePress(item)}
         activeOpacity={0.7}
       >
         {photo && (
@@ -174,7 +178,7 @@ export default function TripDetailScreen() {
       <View className="bg-white border-b border-gray-200 px-4 pt-12 pb-4">
         <View className="flex-row items-center justify-between mb-2">
           <TouchableOpacity
-            onPress={() => navigation.goBack()}
+            onPress={onClose}
             className="mr-4"
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
