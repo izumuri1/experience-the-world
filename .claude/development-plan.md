@@ -348,14 +348,11 @@ Phase 1の開発を**7つのステップ**に分割します。各ステップ�
 - 開発環境ドキュメントの更新
 
 **タスク:**
-- [x] **OpenWeather APIキーの設定準備**
+- [x] **OpenWeather APIキーの設定**
   - [x] 環境変数の設定確認（`EXPO_PUBLIC_OPENWEATHER_API_KEY`）
   - [x] WeatherServiceの実装確認
-  - ⚠️ ユーザー自身でAPIキーを取得・設定する必要あり:
-    1. https://openweathermap.org/api でサインアップ
-    2. APIキーを取得（無料プラン）
-    3. `.env`ファイルに `EXPO_PUBLIC_OPENWEATHER_API_KEY=あなたのAPIキー` を追加
-    4. アプリを再起動
+  - [x] `.env.local`ファイルにAPIキーを設定済み
+  - ✅ 天気情報の取得が正常に動作
 - [x] エラーハンドリングの改善
   - [x] App.tsx: 初期化エラー時のUI追加
   - [x] App.tsx: エラー発生時の再試行機能
@@ -389,7 +386,7 @@ Phase 1の開発を**7つのステップ**に分割します。各ステップ�
 - ✅ エラーハンドリングが適切
 - ✅ iPhone実機で動作確認済み
 - ✅ オフライン動作対応
-- ⚠️ 天気情報はAPIキー設定後に利用可能
+- ✅ 天気情報が正常に動作（APIキー設定済み）
 
 **Phase 2への持ち越し項目:**
 - console文の削除または本番環境での無効化
@@ -892,58 +889,1782 @@ const Stack = createStackNavigator();
 
 ---
 
+## Phase 1 拡張: 音声メモ録音機能の追加
+
+**実装日**: 2025年11月1日
+**目的**: ステップ5で実装した音声メモ機能を、実際の体験記録フローに統合
+
+### 追加実装内容
+
+#### 1. 写真撮影後の音声メモ録音プロンプト
+
+**実装ファイル**: [src/screens/CameraScreen.tsx](../src/screens/CameraScreen.tsx)
+
+**機能:**
+- 写真撮影完了後、音声メモを追加するか確認するダイアログを表示
+- 「今すぐ録音」を選択すると、全画面の録音UIを表示
+- 「後で追加」を選択すると、カメラ画面を閉じる
+
+**実装詳細:**
+```typescript
+// 撮影完了後のダイアログ
+Alert.alert(
+  '✅ 保存完了',
+  '写真と体験が記録されました！\n音声メモを追加しますか？',
+  [
+    { text: '後で追加', onPress: () => onClose() },
+    { text: '今すぐ録音', onPress: () => setShowAudioRecorder(true) }
+  ]
+);
+
+// 全画面録音UI
+{showAudioRecorder && (
+  <AudioRecorder
+    onRecordingComplete={handleAudioRecordingComplete}
+    maxDuration={180000}
+  />
+)}
+```
+
+**テスト結果:**
+- ✅ 写真撮影後にダイアログが表示される
+- ✅ 録音UIが正しく表示される
+- ✅ 録音した音声がDBに保存される
+- ✅ スキップ機能が正常動作
+
+---
+
+#### 2. 体験詳細画面での音声メモ追加・削除
+
+**実装ファイル**: [src/screens/ExperienceDetailScreen.tsx](../src/screens/ExperienceDetailScreen.tsx)
+
+**機能:**
+- 詳細画面から音声メモを追加できる録音ボタン
+- 録音した音声メモのリスト表示
+- 各音声メモの再生・削除機能
+- 音声メモのローカルステート管理
+
+**実装詳細:**
+```typescript
+// 録音状態管理
+const [isRecording, setIsRecording] = useState(false);
+const [audioMemos, setAudioMemos] = useState<string[]>(experience.audioMemos);
+
+// 録音ボタン
+{!isRecording && (
+  <Pressable onPress={() => setIsRecording(true)}>
+    <Ionicons name="mic" />
+    <Text>録音</Text>
+  </Pressable>
+)}
+
+// 録音UI（白背景用にカラー調整）
+{isRecording && (
+  <AudioRecorder
+    onRecordingComplete={handleRecordingComplete}
+    textColor="#1f2937"
+    backgroundColor="#f0f9ff"
+  />
+)}
+
+// 音声メモリスト
+{audioMemos.map((audio) => (
+  <AudioPlayer
+    audioUri={audio}
+    showDeleteButton={true}
+    onDelete={() => handleDeleteAudioMemo(audio)}
+    variant="light"
+  />
+))}
+```
+
+**テスト結果:**
+- ✅ 録音ボタンが視認性高く表示される
+- ✅ 録音UIの色が白背景に最適化される
+- ✅ 録音完了後、リストに追加される
+- ✅ 削除ボタンで音声メモを削除できる
+- ✅ ローカルステートが正しく更新される
+
+---
+
+#### 3. AudioRecorderコンポーネントの改善
+
+**実装ファイル**: [src/components/AudioRecorder.tsx](../src/components/AudioRecorder.tsx)
+
+**改善内容:**
+
+**3-1. カラー設定のプロパティ化**
+```typescript
+interface AudioRecorderProps {
+  textColor?: string;        // テキスト色（デフォルト: white）
+  backgroundColor?: string;  // 背景色（デフォルト: transparent）
+}
+```
+
+**3-2. ボタンの視認性向上**
+- 停止ボタン: 赤色（#ef4444）
+- キャンセルボタン: グレー（#525252）
+- マイクボタン: 黄色（#eab308）
+- ボタンサイズ: 80×80px（統一）
+- アイコンサイズ: 40px（統一）
+- 各ボタンに明確なラベル追加
+
+**3-3. インラインスタイルの使用**
+```typescript
+// NativeWindのクラスではなく、styleプロパティで背景色を指定
+<Pressable
+  style={{
+    backgroundColor: '#ef4444',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  }}
+>
+  <Ionicons name="stop" size={40} color="#ffffff" />
+</Pressable>
+<Text style={{ color: textColor }}>停止して保存</Text>
+```
+
+**テスト結果:**
+- ✅ 停止ボタンが赤色で明確に表示される
+- ✅ キャンセルボタンがグレーで表示される
+- ✅ 白背景・黒背景の両方で使用可能
+- ✅ ボタンサイズが統一され操作しやすい
+
+---
+
+#### 4. AudioPlayerコンポーネントの改善
+
+**実装ファイル**: [src/components/AudioPlayer.tsx](../src/components/AudioPlayer.tsx)
+
+**改善内容:**
+
+**4-1. variant プロパティの追加**
+```typescript
+interface AudioPlayerProps {
+  variant?: 'light' | 'dark';  // light: 白背景用、dark: 黒背景用
+}
+
+const colors = variant === 'light'
+  ? {
+      background: 'rgba(0, 0, 0, 0.05)',
+      text: '#1f2937',
+      progressBg: 'rgba(0, 0, 0, 0.1)',
+    }
+  : {
+      background: 'rgba(255, 255, 255, 0.1)',
+      text: '#ffffff',
+      progressBg: 'rgba(255, 255, 255, 0.2)',
+    };
+```
+
+**4-2. 音声クリーンアップの改善**
+```typescript
+useEffect(() => {
+  let isMounted = true;
+  let currentSound: Audio.Sound | null = null;
+
+  const loadSound = async () => {
+    const { sound: newSound } = await Audio.Sound.createAsync(...);
+
+    if (!isMounted) {
+      await newSound.unloadAsync();
+      return;
+    }
+
+    currentSound = newSound;
+    setSound(newSound);
+  };
+
+  return () => {
+    isMounted = false;
+    if (currentSound) {
+      currentSound.stopAsync().catch(() => {});
+      currentSound.unloadAsync().catch(() => {});
+    }
+  };
+}, [audioUri]);
+```
+
+**4-3. 再生動作の改善**
+- 一時停止 → 停止＋先頭戻しに変更
+- 停止ボタン押下時に position を0にリセット
+- バックグラウンド再生の防止
+
+**4-4. 削除ボタンのサイズ統一**
+```typescript
+<Pressable
+  className="w-10 h-10 rounded-full items-center justify-center ml-3"
+  style={{ backgroundColor: '#dc2626' }}
+>
+  <Ionicons name="trash" size={20} color="#ffffff" />
+</Pressable>
+```
+
+**テスト結果:**
+- ✅ 白背景・黒背景の両方で視認性が良い
+- ✅ 音声再生後にバックグラウンド再生されない
+- ✅ 停止ボタンで先頭に戻る
+- ✅ 削除ボタンが再生ボタンと同じサイズ
+- ✅ メモリリークが発生しない
+
+---
+
+### 技術的な成果
+
+#### バグ修正
+1. **バックグラウンド音声再生の問題**
+   - 問題: 音声再生後、アプリを閉じても音が流れ続ける
+   - 解決: isMountedパターンを使用した適切なクリーンアップ
+
+2. **ボタン色の視認性問題**
+   - 問題: NativeWindのクラス（bg-red-500）が適用されず白いボタンになる
+   - 解決: インラインスタイル（style={{ backgroundColor }}）に変更
+
+3. **削除ボタンのサイズ不一致**
+   - 問題: 削除ボタンが再生ボタンより小さく見えづらい
+   - 解決: 両方とも10×10、アイコンサイズ20で統一
+
+#### UX改善
+1. 写真撮影直後に音声メモを追加できるフロー
+2. 詳細画面から後から音声メモを追加できる柔軟性
+3. 白背景・黒背景に対応した視覚的に最適化されたUI
+4. 明確なボタンラベルとアイコン
+
+#### コード品質向上
+1. コンポーネントの再利用性向上（textColor, backgroundColor, variant props）
+2. 適切なメモリ管理（isMountedパターン）
+3. 型安全性の維持（TypeScript）
+
+---
+
+### 開発ドキュメントの更新
+
+**更新ファイル:**
+- [development-plan.md](.claude/development-plan.md) - Phase 2の詳細計画を追加
+
+**Phase 2の詳細:**
+- ステップ10: Supabase統合とクラウド同期（3日）
+- ステップ11: 世界地図の可視化（2日）
+- ステップ12: 統計・分析機能の強化（1.5日）
+- ステップ13: UI/UX改善とパフォーマンス最適化（1.5日）
+- ステップ14: オフライン対応の強化（1日）
+
+**合計期間:** 約9日（2週間程度）
+
+---
+
+### まとめ
+
+**Phase 1 拡張完了日**: 2025年11月1日
+
+**追加・改善した機能:**
+- ✅ CameraScreen: 写真撮影後の音声メモ録音プロンプト
+- ✅ ExperienceDetailScreen: 詳細画面からの音声メモ追加・削除
+- ✅ AudioRecorder: カラー設定、ボタン視認性向上
+- ✅ AudioPlayer: variant対応、音声クリーンアップ改善、削除ボタンサイズ統一
+
+**技術的成果:**
+- バックグラウンド音声再生問題の解決
+- NativeWindの制限を理解し、適切にインラインスタイルを使用
+- コンポーネントの再利用性向上
+- メモリ管理の改善
+
+**次のステップ:**
+- Phase 2: クラウド同期・世界地図の可視化
+
+---
+
 ## Phase 2: クラウド同期・世界地図の可視化
 
 ### Phase 2の目標
 
 **達成すべきこと:**
+- **データ構造の再設計**（旅行機能の追加）
 - クラウドストレージへのデータ同期
 - 世界地図での訪問国可視化
 - 統計・分析機能の強化
 - オフライン→オンライン自動同期
 
 **ゴール:**
+- 旅行単位で体験を管理できる
+- 訪問回数が正確にカウントされる
 - 複数デバイスでデータを共有できる
 - 旅行の記録を視覚的に楽しめる
 - データのバックアップが自動で取られる
 
-**技術選定:**
-- バックエンド: Supabase（PostgreSQL、Storage、Auth）
-- 地図表示: react-native-maps または Mapbox
-- 同期: バックグラウンド同期（expo-task-manager）
+**技術選定（確定版）:**
+- ✅ バックエンド: Supabase（PostgreSQL、Storage、Auth）
+- ✅ 地図表示: react-native-maps + GeoJSON（natural-earth-vector）
+- ✅ 認証: メール認証（Supabase Auth）
+- ✅ 同期戦略: タイムスタンプ管理（Last Write Wins）
+- ✅ 同期タイミング: バックグラウンド同期（expo-task-manager）
+
+**技術選定の理由:**
+1. **Supabase**: PostgreSQLで3層構造に最適、Storage/Auth統合、無料枠充実
+2. **react-native-maps**: Expo対応、学習コスト低、iOS/Android両対応
+3. **メール認証**: Supabase Authで簡単実装、アカウント統合が容易
+4. **タイムスタンプ管理**: シンプルで確実、Phase 3でCRDTなど高度化可能
+
+---
+
+### ステップ0: データ構造の再設計（旅行機能の追加）
+
+**実装日**: 2025年11月1日
+**目的**: 体験を旅行単位で管理し、訪問国の統計を正確に計算する
+**期間**: 完了
+**依存**: Phase 1完了
+
+**背景:**
+現在のデータ構造では、体験（experiences）と訪問国（visited_countries）の2層構造になっており、訪問回数が体験回数でカウントされてしまう。例えば、1回の旅行で20枚の写真を撮ると、訪問回数が20回とカウントされてしまう問題がある。
+
+**解決策:**
+旅行（trips）を中間層として追加し、以下の3層構造に変更：
+- **旅行（trips）**: 「2025年夏ヨーロッパ旅行」のような単位
+- **体験（experiences）**: 各旅行に紐づく個別の体験
+- **訪問国（visited_countries）**: 旅行単位で訪問回数をカウント
+
+**実装内容:**
+
+#### 1. データベーススキーマの追加
+
+**tripsテーブル:**
+```sql
+CREATE TABLE IF NOT EXISTS trips (
+  id TEXT PRIMARY KEY NOT NULL,
+  user_id TEXT NOT NULL,
+  title TEXT NOT NULL,              -- '2025年夏ヨーロッパ旅行'
+  start_date INTEGER NOT NULL,      -- 旅行開始日（Unix timestamp）
+  end_date INTEGER,                  -- 旅行終了日（進行中ならnull）
+  companions TEXT,                   -- 同行者（カンマ区切り）
+  purpose TEXT,                      -- '観光', '出張', 'ワーケーション'
+  notes TEXT,                        -- 旅行全体のメモ
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+```
+
+**trip_countriesテーブル（中間テーブル）:**
+```sql
+CREATE TABLE IF NOT EXISTS trip_countries (
+  trip_id TEXT NOT NULL,
+  country_code TEXT NOT NULL,
+  country_name TEXT NOT NULL,
+  continent TEXT,
+  first_visit_date INTEGER NOT NULL,  -- その旅行での最初の訪問日
+  PRIMARY KEY (trip_id, country_code),
+  FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE
+);
+```
+
+**experiencesテーブルの変更:**
+- `trip_id`カラムを追加（外部キー）
+- 削除時は`ON DELETE SET NULL`でtrip_idをnullに
+
+**visited_countriesテーブル:**
+- 統計用テーブルとして継続使用
+- `trip_countries`から自動集計される
+- `visit_count` = 旅行回数（体験回数ではない）
+
+#### 2. マイグレーション処理
+
+**バージョン3マイグレーション:**
+- 既存の体験を「未分類の体験」という旅行に自動移行
+- 国コードをグループ化してtrip_countriesに登録
+- visited_countriesを再計算
+
+```typescript
+// 実装済み: DatabaseService.appMigrateToTripsSchema()
+```
+
+#### 3. DatabaseServiceの拡張
+
+**新規メソッド:**
+- [x] `appCreateTrip()` - 旅行を作成
+- [x] `appGetTrips()` - 旅行一覧を取得
+- [x] `appGetTripById()` - 旅行IDから取得
+- [x] `appAddCountryToTrip()` - 旅行に国を追加
+- [x] `appGetTripCountries()` - 旅行の訪問国一覧
+- [x] `appAssignExperienceToTrip()` - 体験を旅行に紐付け
+- [x] `appDeleteTrip()` - 旅行を削除
+- [x] `appRecalculateVisitedCountries()` - 訪問国統計を再計算
+
+**変更メソッド:**
+- [x] `appCreateExperience()` - tripIdパラメータを追加
+- [x] `appUpsertVisitedCountry()` - 非推奨化（互換性のため残す）
+
+#### 4. 型定義の追加
+
+**src/types/models.ts:**
+```typescript
+export interface Trip {
+  id: string;
+  title: string;
+  startDate: Date;
+  endDate: Date | null;
+  companions?: string;
+  purpose?: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TripCountry {
+  tripId: string;
+  countryCode: string;
+  countryName: string;
+  continent: string;
+  firstVisitDate: Date;
+}
+```
+
+**src/types/database.ts:**
+```typescript
+export interface TripRow { /* ... */ }
+export interface TripCountryRow { /* ... */ }
+export interface ExperienceRow {
+  // trip_id カラムを追加
+  trip_id: string | null;
+  // ...
+}
+```
+
+#### 5. データフロー
+
+**体験作成時:**
+1. tripIdが指定されていない場合、「未分類の体験」旅行を使用
+2. experiencesにtrip_idを保存
+3. 国コードがある場合、trip_countriesに登録
+4. visited_countriesを再計算
+
+**旅行削除時:**
+1. tripsを削除
+2. trip_countries自動削除（ON DELETE CASCADE）
+3. experiencesのtrip_idがnullになる（ON DELETE SET NULL）
+4. visited_countriesを再計算
+
+**統計計算:**
+```sql
+-- 訪問回数 = trip_countriesでグループ化したCOUNT
+SELECT country_code, COUNT(*) as visit_count
+FROM trip_countries
+GROUP BY country_code;
+```
+
+#### 6. 実装ファイル
+
+- [x] [src/database/DatabaseService.ts](../src/database/DatabaseService.ts)
+  - テーブル作成、マイグレーション、旅行関連メソッド
+- [x] [src/types/models.ts](../src/types/models.ts)
+  - Trip, TripCountry型定義
+- [x] [src/types/database.ts](../src/types/database.ts)
+  - TripRow, TripCountryRow型定義
+
+#### 7. 今後のUI実装（Phase 2で実施）
+
+- [ ] 旅行一覧画面
+- [ ] 旅行作成・編集画面
+- [ ] 旅行詳細画面（体験一覧）
+- [ ] 体験を旅行に移動する機能
+- [ ] 訪問国の統計表示（旅行回数）
+
+**検証項目:**
+- [x] 既存データが「未分類の体験」に移行される
+- [x] 新規体験が自動的に旅行に紐付けられる
+- [x] trip_countriesが正しく生成される
+- [x] visited_countriesが旅行単位でカウントされる
+
+**技術的な成果:**
+- 3層データ構造の導入（trips → experiences → visited_countries）
+- 中間テーブルを使った正規化
+- 統計データの自動集計機構
+- 後方互換性を保ったマイグレーション
+
+**メリット:**
+1. **訪問回数の正確なカウント**: 体験回数ではなく旅行回数でカウント
+2. **旅行メタデータの保存**: 同行者、目的などを記録可能
+3. **自然な記録単位**: 「2025年夏ヨーロッパ旅行」のような単位で管理
+4. **柔軟な集計**: 期間指定、旅行ごとの統計など
+
+#### 8. データ永続化の修正
+
+**実装日**: 2025年11月1日
+**問題**: アプリ起動時にデータベースがリセットされ、データが消失
+**原因**: 開発用のappResetDatabase()が毎回実行されていた
+
+**修正内容:**
+- [DatabaseService.ts:36](../src/database/DatabaseService.ts#L36)の`await this.appResetDatabase();`をコメントアウト
+- これにより、アプリ起動時にデータベースが削除されなくなる
+- マイグレーションは引き続き実行され、既存データを保持したままスキーマ更新可能
+
+**影響:**
+- ✅ 写真・音声メモなどの体験データが永続化される
+- ✅ 訪問国の統計が正しく蓄積される
+- ✅ マイグレーションによるスキーマ更新は正常動作
+- ⚠️ 本番環境ではappResetDatabaseメソッド自体の削除が必要 (TODO: line 42-61)
+
+**コミット:**
+- コミットハッシュ: 7feabe2
+- メッセージ: "fix: データベースリセット処理を無効化してデータ永続化を実現"
+
+---
+
+**次のステップ:**
+- ステップ9.5: 旅行管理UIの実装（新規追加）
+- ステップ10: Supabase統合（tripsテーブルも同期）
+
+---
+
+### ステップ9.5: 旅行管理UI（新規追加）
+
+**実装日**: 2025年11月2日
+**目的**: Phase 1で実装したデータ構造（trips、trip_countries、experiences）を実際に使えるようにする
+**期間**: 2日
+**依存**: Phase 1完了、ステップ0完了
+
+**背景:**
+ステップ0でデータ構造（trips、trip_countries）は完成したが、実際に旅行を作成・管理するUIがない。
+Supabase統合（ステップ10）の前に、まずローカルで旅行機能を使えるようにする。
+
+**成果物:**
+- TripsScreen.tsx（旅行一覧画面）
+- TripFormScreen.tsx（旅行作成・編集画面）
+- TripDetailScreen.tsx（旅行詳細画面）
+- TripCard.tsx（旅行カードコンポーネント）
+- TripSelector.tsx（旅行選択モーダル）
+- HomeScreenへの旅行ボタン追加
+- App.tsxへのモーダル統合
+
+---
+
+#### タスク9.5-1: 旅行一覧画面の実装（0.5日）
+
+**TripsScreen.tsx**
+
+**機能:**
+- [ ] 旅行一覧を時系列で表示（新しい順）
+- [ ] 進行中の旅行（end_dateがnull）を上部に強調表示
+- [ ] 「新しい旅行を作成」ボタン
+- [ ] 空の状態の表示
+- [ ] ローディング表示
+- [ ] 旅行タップで詳細画面へ遷移
+
+**UI構成:**
+```typescript
+<ScrollView className="flex-1 bg-white">
+  {/* ヘッダー */}
+  <View className="p-6">
+    <Text className="text-3xl font-bold text-gray-900">旅行</Text>
+  </View>
+
+  {/* 進行中の旅行 */}
+  {ongoingTrips.length > 0 && (
+    <View className="px-6 mb-4">
+      <Text className="text-lg font-semibold text-gray-700 mb-2">進行中</Text>
+      {ongoingTrips.map(trip => (
+        <TripCard key={trip.id} trip={trip} variant="ongoing" onPress={() => handleTripPress(trip)} />
+      ))}
+    </View>
+  )}
+
+  {/* 過去の旅行 */}
+  <View className="px-6">
+    <Text className="text-lg font-semibold text-gray-700 mb-2">過去の旅行</Text>
+    {completedTrips.map(trip => (
+      <TripCard key={trip.id} trip={trip} onPress={() => handleTripPress(trip)} />
+    ))}
+  </View>
+
+  {/* 新しい旅行作成ボタン */}
+  <Pressable
+    className="mx-6 mt-4 mb-8 bg-primary-500 rounded-xl p-4"
+    onPress={() => setShowTripForm(true)}
+  >
+    <Ionicons name="add" size={24} color="#ffffff" />
+    <Text className="text-white text-center font-semibold text-lg">新しい旅行を作成</Text>
+  </Pressable>
+</ScrollView>
+```
+
+**データ取得:**
+```typescript
+const [trips, setTrips] = useState<Trip[]>([]);
+const [loading, setLoading] = useState(true);
+
+useEffect(() => {
+  loadTrips();
+}, []);
+
+const loadTrips = async () => {
+  try {
+    const allTrips = await db.appGetTrips();
+    setTrips(allTrips);
+  } catch (error) {
+    console.error('Failed to load trips:', error);
+  } finally {
+    setLoading(false);
+  }
+};
+
+// 進行中と完了済みに分割
+const ongoingTrips = trips.filter(t => !t.endDate);
+const completedTrips = trips.filter(t => t.endDate);
+```
+
+---
+
+#### タスク9.5-2: 旅行カードコンポーネントの実装（0.25日）
+
+**TripCard.tsx**
+
+**機能:**
+- [ ] タイトル表示
+- [ ] 期間表示（開始日〜終了日 or 「進行中」）
+- [ ] 訪問国数の表示
+- [ ] 体験数（写真枚数）の表示
+- [ ] カバー写真の表示（最新の写真1枚）
+- [ ] 進行中の旅行は黄色枠で強調
+
+**実装:**
+```typescript
+interface TripCardProps {
+  trip: Trip;
+  variant?: 'normal' | 'ongoing';
+  onPress?: () => void;
+}
+
+export default function TripCard({ trip, variant = 'normal', onPress }: TripCardProps) {
+  const [stats, setStats] = useState({ experienceCount: 0, countryCount: 0 });
+  const [coverPhoto, setCoverPhoto] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadTripStats();
+  }, [trip.id]);
+
+  const loadTripStats = async () => {
+    // 体験数を取得（trip_idでフィルタリング）
+    const experiences = await db.appGetExperiences({ tripId: trip.id });
+
+    // 訪問国数を取得
+    const countries = await db.appGetTripCountries(trip.id);
+
+    // カバー写真を取得（最新の体験の写真）
+    if (experiences.length > 0 && experiences[0].photos.length > 0) {
+      setCoverPhoto(experiences[0].photos[0]);
+    }
+
+    setStats({
+      experienceCount: experiences.length,
+      countryCount: countries.length,
+    });
+  };
+
+  const formatDateRange = () => {
+    const start = format(trip.startDate, 'yyyy/MM/dd');
+    if (!trip.endDate) return `${start} 〜 進行中`;
+    const end = format(trip.endDate, 'yyyy/MM/dd');
+    return `${start} 〜 ${end}`;
+  };
+
+  return (
+    <Pressable
+      className={`mb-3 rounded-xl overflow-hidden ${
+        variant === 'ongoing' ? 'border-2 border-secondary-500' : 'border border-gray-200'
+      }`}
+      onPress={onPress}
+    >
+      {/* カバー写真 */}
+      {coverPhoto ? (
+        <Image
+          source={{ uri: coverPhoto }}
+          className="w-full h-40"
+          resizeMode="cover"
+        />
+      ) : (
+        <View className="w-full h-40 bg-gray-100 items-center justify-center">
+          <Ionicons name="camera-outline" size={48} color="#9ca3af" />
+        </View>
+      )}
+
+      <View className="bg-gray-50 p-4">
+        {/* タイトル */}
+        <Text className="text-xl font-bold text-gray-900 mb-1">
+          {trip.title}
+        </Text>
+
+        {/* 期間 */}
+        <Text className="text-sm text-gray-600 mb-3">
+          {formatDateRange()}
+        </Text>
+
+        {/* 統計 */}
+        <View className="flex-row items-center">
+          <Ionicons name="location" size={16} color="#6b7280" />
+          <Text className="text-sm text-gray-600 ml-1 mr-4">
+            {stats.countryCount}カ国
+          </Text>
+
+          <Ionicons name="camera" size={16} color="#6b7280" />
+          <Text className="text-sm text-gray-600 ml-1">
+            {stats.experienceCount}件の体験
+          </Text>
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+```
+
+---
+
+#### タスク9.5-3: 旅行作成・編集画面の実装（0.5日）
+
+**TripFormScreen.tsx**
+
+**機能:**
+- [ ] タイトル入力（必須）
+- [ ] 開始日選択（DateTimePicker）
+- [ ] 終了日選択（オプション、「進行中」スイッチ）
+- [ ] 同行者入力（オプション）
+- [ ] 目的選択（観光、出張、ワーケーション、その他）
+- [ ] メモ入力（オプション）
+- [ ] 保存ボタン
+- [ ] キャンセルボタン
+- [ ] バリデーション（タイトル必須）
+
+**実装:**
+```typescript
+interface TripFormScreenProps {
+  tripId?: string; // 編集時は指定、新規作成時はundefined
+  onClose: () => void;
+  onSave: () => void;
+}
+
+export default function TripFormScreen({ tripId, onClose, onSave }: TripFormScreenProps) {
+  const [title, setTitle] = useState('');
+  const [startDate, setStartDate] = useState(new Date());
+  const [endDate, setEndDate] = useState<Date | null>(null);
+  const [isOngoing, setIsOngoing] = useState(true);
+  const [companions, setCompanions] = useState('');
+  const [purpose, setPurpose] = useState<string>('観光');
+  const [notes, setNotes] = useState('');
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+
+  useEffect(() => {
+    if (tripId) {
+      loadTrip();
+    }
+  }, [tripId]);
+
+  const loadTrip = async () => {
+    if (!tripId) return;
+    const trip = await db.appGetTripById(tripId);
+    if (trip) {
+      setTitle(trip.title);
+      setStartDate(trip.startDate);
+      setEndDate(trip.endDate);
+      setIsOngoing(!trip.endDate);
+      setCompanions(trip.companions || '');
+      setPurpose(trip.purpose || '観光');
+      setNotes(trip.notes || '');
+    }
+  };
+
+  const handleSave = async () => {
+    if (!title.trim()) {
+      Alert.alert('エラー', 'タイトルを入力してください');
+      return;
+    }
+
+    try {
+      if (tripId) {
+        // 更新
+        await db.appUpdateTrip(tripId, {
+          title,
+          startDate,
+          endDate: isOngoing ? null : endDate,
+          companions: companions || undefined,
+          purpose: purpose || undefined,
+          notes: notes || undefined,
+        });
+      } else {
+        // 新規作成
+        await db.appCreateTrip({
+          title,
+          startDate,
+          endDate: isOngoing ? null : endDate,
+          companions: companions || undefined,
+          purpose: purpose || undefined,
+          notes: notes || undefined,
+        });
+      }
+      onSave();
+      onClose();
+    } catch (error) {
+      console.error('Failed to save trip:', error);
+      Alert.alert('エラー', '旅行の保存に失敗しました');
+    }
+  };
+
+  return (
+    <Modal visible={true} animationType="slide">
+      <SafeAreaView className="flex-1 bg-white">
+        {/* ヘッダー */}
+        <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-200">
+          <Pressable onPress={onClose}>
+            <Text className="text-primary-500 text-lg">キャンセル</Text>
+          </Pressable>
+          <Text className="text-xl font-bold">
+            {tripId ? '旅行を編集' : '新しい旅行'}
+          </Text>
+          <Pressable onPress={handleSave}>
+            <Text className="text-primary-500 text-lg font-semibold">保存</Text>
+          </Pressable>
+        </View>
+
+        <ScrollView className="flex-1 px-6 py-4">
+          {/* タイトル */}
+          <View className="mb-6">
+            <Text className="text-sm font-semibold text-gray-700 mb-2">タイトル *</Text>
+            <TextInput
+              className="border border-gray-300 rounded-lg px-4 py-3 text-base"
+              placeholder="2025年夏ヨーロッパ旅行"
+              value={title}
+              onChangeText={setTitle}
+            />
+          </View>
+
+          {/* 開始日 */}
+          <View className="mb-6">
+            <Text className="text-sm font-semibold text-gray-700 mb-2">開始日 *</Text>
+            <Pressable
+              className="border border-gray-300 rounded-lg px-4 py-3"
+              onPress={() => setShowStartDatePicker(true)}
+            >
+              <Text className="text-base">{format(startDate, 'yyyy年MM月dd日')}</Text>
+            </Pressable>
+          </View>
+
+          {/* 終了日 */}
+          <View className="mb-6">
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="text-sm font-semibold text-gray-700">終了日</Text>
+              <View className="flex-row items-center">
+                <Switch value={isOngoing} onValueChange={setIsOngoing} />
+                <Text className="text-sm text-gray-600 ml-2">進行中</Text>
+              </View>
+            </View>
+            {!isOngoing && (
+              <Pressable
+                className="border border-gray-300 rounded-lg px-4 py-3"
+                onPress={() => setShowEndDatePicker(true)}
+              >
+                <Text className="text-base">
+                  {endDate ? format(endDate, 'yyyy年MM月dd日') : '選択してください'}
+                </Text>
+              </Pressable>
+            )}
+          </View>
+
+          {/* 同行者 */}
+          <View className="mb-6">
+            <Text className="text-sm font-semibold text-gray-700 mb-2">同行者（任意）</Text>
+            <TextInput
+              className="border border-gray-300 rounded-lg px-4 py-3 text-base"
+              placeholder="友人、家族など"
+              value={companions}
+              onChangeText={setCompanions}
+            />
+          </View>
+
+          {/* 目的 */}
+          <View className="mb-6">
+            <Text className="text-sm font-semibold text-gray-700 mb-2">目的</Text>
+            <View className="flex-row flex-wrap">
+              {['観光', '出張', 'ワーケーション', 'その他'].map((p) => (
+                <Pressable
+                  key={p}
+                  className={`mr-2 mb-2 px-4 py-2 rounded-full ${
+                    purpose === p ? 'bg-primary-500' : 'bg-gray-100'
+                  }`}
+                  onPress={() => setPurpose(p)}
+                >
+                  <Text className={purpose === p ? 'text-white' : 'text-gray-700'}>
+                    {p}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          {/* メモ */}
+          <View className="mb-6">
+            <Text className="text-sm font-semibold text-gray-700 mb-2">メモ（任意）</Text>
+            <TextInput
+              className="border border-gray-300 rounded-lg px-4 py-3 text-base"
+              placeholder="旅行の思い出など"
+              value={notes}
+              onChangeText={setNotes}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+          </View>
+        </ScrollView>
+
+        {/* DateTimePicker */}
+        {showStartDatePicker && (
+          <DateTimePicker
+            value={startDate}
+            mode="date"
+            onChange={(event, date) => {
+              setShowStartDatePicker(false);
+              if (date) setStartDate(date);
+            }}
+          />
+        )}
+        {showEndDatePicker && (
+          <DateTimePicker
+            value={endDate || new Date()}
+            mode="date"
+            onChange={(event, date) => {
+              setShowEndDatePicker(false);
+              if (date) setEndDate(date);
+            }}
+          />
+        )}
+      </SafeAreaView>
+    </Modal>
+  );
+}
+```
+
+**必要なパッケージ:**
+```bash
+npx expo install @react-native-community/datetimepicker
+```
+
+---
+
+#### タスク9.5-4: 旅行詳細画面の実装（0.5日）
+
+**TripDetailScreen.tsx**
+
+**機能:**
+- [ ] 旅行情報の表示（タイトル、期間、同行者、目的、メモ）
+- [ ] この旅行の体験一覧（タイムライン形式）
+- [ ] 訪問国リスト（国旗・国名・訪問日）
+- [ ] 統計情報（写真枚数、訪問国数、期間、日数）
+- [ ] 編集ボタン（TripFormScreenへ遷移）
+- [ ] 削除ボタン（確認ダイアログ付き）
+- [ ] 旅行終了ボタン（進行中の旅行のみ）
+
+**実装概要:**
+```typescript
+interface TripDetailScreenProps {
+  tripId: string;
+  onClose: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+export default function TripDetailScreen({ tripId, onClose, onEdit, onDelete }: TripDetailScreenProps) {
+  const [trip, setTrip] = useState<Trip | null>(null);
+  const [experiences, setExperiences] = useState<Experience[]>([]);
+  const [countries, setCountries] = useState<TripCountry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadTripData();
+  }, [tripId]);
+
+  const loadTripData = async () => {
+    try {
+      const tripData = await db.appGetTripById(tripId);
+      const expData = await db.appGetExperiences({ tripId });
+      const countryData = await db.appGetTripCountries(tripId);
+
+      setTrip(tripData);
+      setExperiences(expData);
+      setCountries(countryData);
+    } catch (error) {
+      console.error('Failed to load trip data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEndTrip = async () => {
+    Alert.alert(
+      '旅行を終了',
+      'この旅行を終了しますか？',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: '終了',
+          onPress: async () => {
+            await db.appUpdateTrip(tripId, { endDate: new Date() });
+            loadTripData();
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDelete = async () => {
+    Alert.alert(
+      '旅行を削除',
+      'この旅行を削除しますか？紐づく体験は「未分類の体験」に移動されます。',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: '削除',
+          style: 'destructive',
+          onPress: async () => {
+            await db.appDeleteTrip(tripId);
+            onDelete();
+            onClose();
+          },
+        },
+      ]
+    );
+  };
+
+  return (
+    <Modal visible={true} animationType="slide">
+      <SafeAreaView className="flex-1 bg-white">
+        {/* ヘッダー */}
+        <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-200">
+          <Pressable onPress={onClose}>
+            <Ionicons name="arrow-back" size={24} color="#3388ff" />
+          </Pressable>
+          <Text className="text-xl font-bold">{trip?.title}</Text>
+          <Pressable onPress={onEdit}>
+            <Ionicons name="create-outline" size={24} color="#3388ff" />
+          </Pressable>
+        </View>
+
+        <ScrollView className="flex-1">
+          {/* 旅行情報 */}
+          <View className="p-6 border-b border-gray-200">
+            <Text className="text-sm text-gray-600 mb-2">期間</Text>
+            <Text className="text-lg font-semibold text-gray-900 mb-4">
+              {formatDateRange(trip)}
+            </Text>
+
+            {trip?.companions && (
+              <>
+                <Text className="text-sm text-gray-600 mb-2">同行者</Text>
+                <Text className="text-lg text-gray-900 mb-4">{trip.companions}</Text>
+              </>
+            )}
+
+            {trip?.purpose && (
+              <>
+                <Text className="text-sm text-gray-600 mb-2">目的</Text>
+                <Text className="text-lg text-gray-900 mb-4">{trip.purpose}</Text>
+              </>
+            )}
+
+            {trip?.notes && (
+              <>
+                <Text className="text-sm text-gray-600 mb-2">メモ</Text>
+                <Text className="text-base text-gray-900">{trip.notes}</Text>
+              </>
+            )}
+          </View>
+
+          {/* 統計情報 */}
+          <View className="p-6 border-b border-gray-200">
+            <Text className="text-lg font-semibold text-gray-900 mb-4">統計</Text>
+            <View className="flex-row flex-wrap">
+              <StatCard icon="location" label="訪問国" value={`${countries.length}カ国`} />
+              <StatCard icon="camera" label="体験" value={`${experiences.length}件`} />
+              <StatCard icon="calendar" label="日数" value={calculateDays(trip)} />
+            </View>
+          </View>
+
+          {/* 訪問国リスト */}
+          {countries.length > 0 && (
+            <View className="p-6 border-b border-gray-200">
+              <Text className="text-lg font-semibold text-gray-900 mb-4">訪問国</Text>
+              {countries.map((country) => (
+                <View key={country.countryCode} className="flex-row items-center mb-3">
+                  <Text className="text-2xl mr-3">{getCountryFlag(country.countryCode)}</Text>
+                  <View>
+                    <Text className="text-base font-semibold text-gray-900">
+                      {country.countryName}
+                    </Text>
+                    <Text className="text-sm text-gray-600">
+                      {format(country.firstVisitDate, 'yyyy/MM/dd')}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* 体験一覧 */}
+          {experiences.length > 0 && (
+            <View className="p-6">
+              <Text className="text-lg font-semibold text-gray-900 mb-4">体験</Text>
+              {experiences.map((exp) => (
+                <ExperienceCard key={exp.id} experience={exp} />
+              ))}
+            </View>
+          )}
+
+          {/* アクションボタン */}
+          <View className="p-6">
+            {!trip?.endDate && (
+              <Pressable
+                className="bg-secondary-500 rounded-xl p-4 mb-3"
+                onPress={handleEndTrip}
+              >
+                <Text className="text-white text-center font-semibold text-lg">
+                  旅行を終了
+                </Text>
+              </Pressable>
+            )}
+            <Pressable
+              className="bg-red-500 rounded-xl p-4"
+              onPress={handleDelete}
+            >
+              <Text className="text-white text-center font-semibold text-lg">
+                旅行を削除
+              </Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </Modal>
+  );
+}
+```
+
+---
+
+#### タスク9.5-5: 旅行選択モーダルの実装（0.25日）
+
+**TripSelector.tsx**
+
+**目的:** ExperienceDetailScreenから体験を別の旅行に移動する
+
+**機能:**
+- [ ] 旅行一覧を表示
+- [ ] 「未分類の体験」も選択肢として表示
+- [ ] 現在の旅行を強調表示
+- [ ] 選択した旅行に体験を移動
+
+**実装概要:**
+```typescript
+interface TripSelectorProps {
+  currentTripId: string | null;
+  experienceId: string;
+  onSelect: (tripId: string | null) => void;
+  onClose: () => void;
+}
+
+export default function TripSelector({ currentTripId, experienceId, onSelect, onClose }: TripSelectorProps) {
+  const [trips, setTrips] = useState<Trip[]>([]);
+
+  useEffect(() => {
+    loadTrips();
+  }, []);
+
+  const loadTrips = async () => {
+    const allTrips = await db.appGetTrips();
+    setTrips(allTrips);
+  };
+
+  const handleSelect = async (tripId: string | null) => {
+    try {
+      await db.appAssignExperienceToTrip(experienceId, tripId);
+      onSelect(tripId);
+      onClose();
+    } catch (error) {
+      console.error('Failed to assign experience:', error);
+      Alert.alert('エラー', '旅行の変更に失敗しました');
+    }
+  };
+
+  return (
+    <Modal visible={true} animationType="slide">
+      <SafeAreaView className="flex-1 bg-white">
+        <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-200">
+          <Text className="text-xl font-bold">旅行を選択</Text>
+          <Pressable onPress={onClose}>
+            <Ionicons name="close" size={24} color="#6b7280" />
+          </Pressable>
+        </View>
+
+        <ScrollView className="flex-1">
+          {/* 未分類の体験 */}
+          <Pressable
+            className={`p-4 border-b border-gray-200 ${
+              currentTripId === null ? 'bg-primary-50' : ''
+            }`}
+            onPress={() => handleSelect(null)}
+          >
+            <Text className="text-lg font-semibold text-gray-900">未分類の体験</Text>
+            {currentTripId === null && (
+              <Text className="text-sm text-primary-500 mt-1">現在の旅行</Text>
+            )}
+          </Pressable>
+
+          {/* 旅行一覧 */}
+          {trips.map((trip) => (
+            <Pressable
+              key={trip.id}
+              className={`p-4 border-b border-gray-200 ${
+                currentTripId === trip.id ? 'bg-primary-50' : ''
+              }`}
+              onPress={() => handleSelect(trip.id)}
+            >
+              <Text className="text-lg font-semibold text-gray-900">{trip.title}</Text>
+              <Text className="text-sm text-gray-600 mt-1">
+                {format(trip.startDate, 'yyyy/MM/dd')}
+                {trip.endDate ? ` 〜 ${format(trip.endDate, 'yyyy/MM/dd')}` : ' 〜 進行中'}
+              </Text>
+              {currentTripId === trip.id && (
+                <Text className="text-sm text-primary-500 mt-1">現在の旅行</Text>
+              )}
+            </Pressable>
+          ))}
+        </ScrollView>
+      </SafeAreaView>
+    </Modal>
+  );
+}
+```
+
+---
+
+#### タスク9.5-6: HomeScreenへの旅行ボタン追加（0.1日）
+
+**HomeScreen.tsx の変更**
+
+**追加内容:**
+- [ ] 「旅行」ボタンを追加
+- [ ] 旅行数の統計を表示
+
+```typescript
+// 統計取得に旅行数を追加
+const [tripCount, setTripCount] = useState(0);
+
+const loadStats = async () => {
+  // ... 既存のコード
+  const tripsData = await db.appGetTrips();
+  setTripCount(tripsData.length);
+};
+
+// ボタン追加
+<Pressable
+  className="bg-white rounded-2xl p-6 mb-4 shadow-sm"
+  onPress={() => setShowTrips(true)}
+>
+  <View className="flex-row items-center justify-between">
+    <View className="flex-row items-center">
+      <View className="w-12 h-12 bg-secondary-100 rounded-full items-center justify-center mr-4">
+        <Ionicons name="airplane" size={24} color="#ffc107" />
+      </View>
+      <View>
+        <Text className="text-lg font-semibold text-gray-900">旅行</Text>
+        <Text className="text-sm text-gray-600">{tripCount}件の旅行</Text>
+      </View>
+    </View>
+    <Ionicons name="chevron-forward" size={24} color="#d1d5db" />
+  </View>
+</Pressable>
+```
+
+---
+
+#### タスク9.5-7: App.tsxへのモーダル統合（0.1日）
+
+**App.tsx の変更**
+
+**追加内容:**
+- [ ] TripsScreen モーダル
+- [ ] TripFormScreen モーダル
+- [ ] TripDetailScreen モーダル
+- [ ] 状態管理とモーダル遷移
+
+```typescript
+const [showTrips, setShowTrips] = useState(false);
+const [showTripForm, setShowTripForm] = useState(false);
+const [showTripDetail, setShowTripDetail] = useState(false);
+const [editingTripId, setEditingTripId] = useState<string | undefined>(undefined);
+const [selectedTripId, setSelectedTripId] = useState<string | undefined>(undefined);
+
+// TripsScreen モーダル
+{showTrips && (
+  <Modal visible={true} animationType="slide">
+    <TripsScreen
+      onClose={() => setShowTrips(false)}
+      onTripPress={(trip) => {
+        setSelectedTripId(trip.id);
+        setShowTripDetail(true);
+      }}
+      onCreateTrip={() => {
+        setEditingTripId(undefined);
+        setShowTripForm(true);
+      }}
+    />
+  </Modal>
+)}
+
+// TripFormScreen モーダル
+{showTripForm && (
+  <TripFormScreen
+    tripId={editingTripId}
+    onClose={() => setShowTripForm(false)}
+    onSave={() => {
+      setShowTripForm(false);
+      // TripsScreenをリフレッシュ
+    }}
+  />
+)}
+
+// TripDetailScreen モーダル
+{showTripDetail && selectedTripId && (
+  <TripDetailScreen
+    tripId={selectedTripId}
+    onClose={() => setShowTripDetail(false)}
+    onEdit={() => {
+      setEditingTripId(selectedTripId);
+      setShowTripForm(true);
+    }}
+    onDelete={() => {
+      setShowTripDetail(false);
+      // TripsScreenをリフレッシュ
+    }}
+  />
+)}
+```
+
+---
+
+#### タスク9.5-8: ExperienceDetailScreenの拡張（0.1日）
+
+**ExperienceDetailScreen.tsx の変更**
+
+**追加内容:**
+- [ ] 「旅行を変更」ボタンを追加
+- [ ] TripSelectorを統合
+
+```typescript
+const [showTripSelector, setShowTripSelector] = useState(false);
+
+// ボタン追加（旅行情報の下）
+{experience.tripId && (
+  <View className="px-6 py-4 border-b border-gray-200">
+    <Text className="text-sm text-gray-600 mb-2">所属する旅行</Text>
+    <Pressable
+      className="flex-row items-center justify-between bg-gray-50 rounded-lg p-3"
+      onPress={() => setShowTripSelector(true)}
+    >
+      <Text className="text-base text-gray-900">{tripTitle}</Text>
+      <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+    </Pressable>
+  </View>
+)}
+
+// TripSelector モーダル
+{showTripSelector && (
+  <TripSelector
+    currentTripId={experience.tripId}
+    experienceId={experience.id}
+    onSelect={(tripId) => {
+      // 体験の旅行を更新
+      loadExperience();
+    }}
+    onClose={() => setShowTripSelector(false)}
+  />
+)}
+```
+
+---
+
+**テスト項目:**
+- [ ] 旅行を作成できる
+- [ ] 旅行一覧が表示される
+- [ ] 進行中の旅行が上部に表示される
+- [ ] 旅行詳細が正しく表示される
+- [ ] 旅行を編集できる
+- [ ] 旅行を終了できる
+- [ ] 旅行を削除できる（体験は未分類に移動）
+- [ ] 体験を旅行に割り当てられる
+- [ ] 体験を別の旅行に移動できる
+- [ ] 訪問国統計が正しくカウントされる
+- [ ] iPhone実機テスト完了
+
+**完了基準:**
+- すべてのテスト項目が✅
+- Phase 1と同様のコード品質
+- NativeWindスタイリング規約に準拠
+- TypeScriptの型安全性を維持
 
 ---
 
 ### ステップ10: Supabase統合とクラウド同期
 
+**実装予定日**: Phase 2開始後
 **目的**: バックエンド構築とデータ同期機能の実装
 **期間**: 3日
-**依存**: Phase 1完了
+**依存**: ステップ9.5完了
 
 **成果物:**
 - Supabaseプロジェクトのセットアップ
-- 認証機能（匿名認証 or メール認証）
-- データベーススキーマのマイグレーション
-- 双方向同期ロジック
+- メール認証機能（Supabase Auth）
+- PostgreSQLスキーマのマイグレーション
+- 双方向同期ロジック（タイムスタンプ管理）
+- 同期状態のUI表示
 
-**タスク:**
+---
 
-**10-1. Supabaseセットアップ（0.5日）**
-- [ ] Supabaseプロジェクト作成
-- [ ] データベーススキーマ設計
-  - experiences テーブル
-  - media_files テーブル
-  - visited_countries テーブル
-  - users テーブル（プロフィール）
-- [ ] Row Level Security (RLS) ポリシー設定
-- [ ] Storage バケット作成（photos, audio_memos, ambient_sounds）
+#### タスク10-1: Supabaseセットアップ（0.5日）
 
-**10-2. 認証機能実装（1日）**
-- [ ] Supabase Auth SDK統合
-- [ ] 匿名認証の実装（まずはこれから）
-- [ ] ログイン/ログアウトUI
-- [ ] 認証状態の管理（Context API）
-- [ ] デバイスIDとユーザーIDの紐付け
+**10-1-1. Supabaseプロジェクト作成**
+- [ ] https://supabase.com でプロジェクト作成
+- [ ] プロジェクトURL・API Keyを`.env.local`に保存
+  ```bash
+  EXPO_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+  EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc...
+  ```
+- [ ] `@supabase/supabase-js`をインストール
+  ```bash
+  npm install @supabase/supabase-js
+  ```
+
+**10-1-2. データベーススキーマ設計**
+
+PostgreSQLにローカルSQLiteと同じ構造を作成：
+
+```sql
+-- users テーブル（Supabase Authと連携）
+CREATE TABLE profiles (
+  id UUID REFERENCES auth.users PRIMARY KEY,
+  email TEXT,
+  display_name TEXT,
+  avatar_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- trips テーブル
+CREATE TABLE trips (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id) NOT NULL,
+  title TEXT NOT NULL,
+  start_date TIMESTAMPTZ NOT NULL,
+  end_date TIMESTAMPTZ,
+  companions TEXT,
+  purpose TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- trip_countries テーブル
+CREATE TABLE trip_countries (
+  trip_id UUID REFERENCES trips(id) ON DELETE CASCADE,
+  country_code TEXT NOT NULL,
+  country_name TEXT NOT NULL,
+  continent TEXT,
+  first_visit_date TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (trip_id, country_code)
+);
+
+-- experiences テーブル
+CREATE TABLE experiences (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id) NOT NULL,
+  trip_id UUID REFERENCES trips(id) ON DELETE SET NULL,
+  timestamp TIMESTAMPTZ NOT NULL,
+  latitude DOUBLE PRECISION NOT NULL,
+  longitude DOUBLE PRECISION NOT NULL,
+  address TEXT,
+  place_name TEXT,
+  country_code TEXT,
+  weather_condition TEXT,
+  weather_temperature DOUBLE PRECISION,
+  weather_icon TEXT,
+  text_notes TEXT,
+  tags JSONB DEFAULT '[]'::jsonb,
+  sync_status TEXT DEFAULT 'synced',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- media_files テーブル
+CREATE TABLE media_files (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  experience_id UUID REFERENCES experiences(id) ON DELETE CASCADE,
+  file_type TEXT NOT NULL,
+  file_path TEXT NOT NULL, -- Supabase Storageのパス
+  file_size BIGINT,
+  duration INTEGER,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- visited_countries テーブル（統計用）
+CREATE TABLE visited_countries (
+  user_id UUID REFERENCES profiles(id) NOT NULL,
+  country_code TEXT NOT NULL,
+  country_name TEXT NOT NULL,
+  continent TEXT,
+  first_visit TIMESTAMPTZ NOT NULL,
+  last_visit TIMESTAMPTZ NOT NULL,
+  visit_count INTEGER DEFAULT 1,
+  photo_count INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (user_id, country_code)
+);
+
+-- インデックス
+CREATE INDEX idx_experiences_user_id ON experiences(user_id);
+CREATE INDEX idx_experiences_trip_id ON experiences(trip_id);
+CREATE INDEX idx_experiences_timestamp ON experiences(timestamp DESC);
+CREATE INDEX idx_media_experience_id ON media_files(experience_id);
+CREATE INDEX idx_trips_user_id ON trips(user_id);
+```
+
+**10-1-3. Row Level Security (RLS) ポリシー設定**
+
+ユーザーは自分のデータのみアクセス可能：
+
+```sql
+-- profiles テーブル
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view own profile" ON profiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
+
+-- trips テーブル
+ALTER TABLE trips ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can CRUD own trips" ON trips FOR ALL USING (auth.uid() = user_id);
+
+-- experiences テーブル
+ALTER TABLE experiences ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can CRUD own experiences" ON experiences FOR ALL USING (auth.uid() = user_id);
+
+-- その他のテーブルも同様にRLS設定
+```
+
+**10-1-4. Storage バケット作成**
+
+```sql
+-- Supabase Storageでバケットを作成
+INSERT INTO storage.buckets (id, name, public) VALUES
+  ('photos', 'photos', false),
+  ('audio-memos', 'audio-memos', false),
+  ('ambient-sounds', 'ambient-sounds', false);
+
+-- RLSポリシー: ユーザーは自分のファイルのみアクセス可能
+CREATE POLICY "Users can CRUD own photos"
+  ON storage.objects FOR ALL
+  USING (bucket_id = 'photos' AND auth.uid()::text = (storage.foldername(name))[1]);
+```
+
+---
+
+#### タスク10-2: 認証機能実装（1日）
+
+**10-2-1. Supabase Authクライアントの作成**
+
+```typescript
+// src/services/SupabaseClient.ts
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: AsyncStorage, // Expo用のストレージ
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+});
+```
+
+**10-2-2. 認証Context の作成**
+
+```typescript
+// src/contexts/AuthContext.tsx
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Session, User } from '@supabase/supabase-js';
+import { supabase } from '../services/SupabaseClient';
+
+interface AuthContextType {
+  user: User | null;
+  session: Session | null;
+  signUp: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  loading: boolean;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // セッションを取得
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    // 認証状態の変更を監視
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const signUp = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) throw error;
+  };
+
+  const signIn = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  };
+
+  const signOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, session, signUp, signIn, signOut, loading }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
+  return context;
+};
+```
+
+**10-2-3. ログイン/サインアップ画面の実装**
+
+```typescript
+// src/screens/AuthScreen.tsx
+export default function AuthScreen() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
+  const { signUp, signIn } = useAuth();
+
+  const handleAuth = async () => {
+    try {
+      if (isSignUp) {
+        await signUp(email, password);
+        Alert.alert('成功', '確認メールを送信しました');
+      } else {
+        await signIn(email, password);
+      }
+    } catch (error: any) {
+      Alert.alert('エラー', error.message);
+    }
+  };
+
+  return (
+    <View className="flex-1 bg-white px-6 justify-center">
+      <Text className="text-3xl font-bold text-gray-900 mb-8">
+        {isSignUp ? 'アカウント作成' : 'ログイン'}
+      </Text>
+
+      <TextInput
+        className="border border-gray-300 rounded-lg px-4 py-3 mb-4"
+        placeholder="メールアドレス"
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+      />
+
+      <TextInput
+        className="border border-gray-300 rounded-lg px-4 py-3 mb-6"
+        placeholder="パスワード"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+      />
+
+      <Pressable
+        className="bg-primary-500 rounded-xl p-4 mb-4"
+        onPress={handleAuth}
+      >
+        <Text className="text-white text-center font-semibold text-lg">
+          {isSignUp ? '登録' : 'ログイン'}
+        </Text>
+      </Pressable>
+
+      <Pressable onPress={() => setIsSignUp(!isSignUp)}>
+        <Text className="text-primary-500 text-center">
+          {isSignUp
+            ? 'すでにアカウントをお持ちの方はこちら'
+            : 'アカウントをお持ちでない方はこちら'}
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+```
+
+**10-2-4. App.tsxへの統合**
+
+```typescript
+// App.tsx
+import { AuthProvider, useAuth } from './src/contexts/AuthContext';
+
+function AppContent() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
+  if (!user) {
+    return <AuthScreen />;
+  }
+
+  // 既存のアプリ画面
+  return <HomeScreen />;
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}
+```
+
+---
+
+#### タスク10-3: データ同期ロジック実装（1.5日）
 
 **10-3. データ同期ロジック実装（1.5日）**
 - [ ] SupabaseServiceクラスの作成
@@ -1154,6 +2875,620 @@ Phase 3以降に持ち越し:
 - ❌ 感性ベースの推薦
 - ❌ 音楽・本・映画の連携
 - ❌ 有料プラン機能
+
+---
+
+## 6. Phase 2 アーキテクチャとデータフロー
+
+### 6-1. システムアーキテクチャ図
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     React Native App (Expo)                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │                    Presentation Layer                     │  │
+│  │  ┌────────────┐ ┌────────────┐ ┌────────────────────┐   │  │
+│  │  │  Screens   │ │ Components │ │  Navigation        │   │  │
+│  │  │ - Home     │ │ - Card     │ │  - Stack Navigator │   │  │
+│  │  │ - Trips    │ │ - Forms    │ │  - Tab Navigator   │   │  │
+│  │  │ - Map      │ │ - Lists    │ │  - Modal Stack     │   │  │
+│  │  │ - Stats    │ │ - Modals   │ │                    │   │  │
+│  │  └────────────┘ └────────────┘ └────────────────────┘   │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                              ↕                                  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │                   Business Logic Layer                    │  │
+│  │  ┌────────────────┐ ┌──────────────┐ ┌───────────────┐  │  │
+│  │  │    Contexts    │ │   Services   │ │     Hooks     │  │  │
+│  │  │ - AuthContext  │ │ - Database   │ │ - useTrips    │  │  │
+│  │  │                │ │ - Supabase   │ │ - useCountry  │  │  │
+│  │  │                │ │ - Weather    │ │ - useSync     │  │  │
+│  │  │                │ │ - Location   │ │               │  │  │
+│  │  └────────────────┘ └──────────────┘ └───────────────┘  │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                              ↕                                  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │                    Data Access Layer                      │  │
+│  │  ┌────────────────────────┐  ┌──────────────────────┐    │  │
+│  │  │   Local Storage        │  │   Remote Storage     │    │  │
+│  │  │  - SQLite (Expo)       │  │  - Supabase Client   │    │  │
+│  │  │  - File System         │  │  - Auth Client       │    │  │
+│  │  │  - AsyncStorage        │  │  - Storage Client    │    │  │
+│  │  └────────────────────────┘  └──────────────────────┘    │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+                              ↕
+         ┌────────────────────────────────────────┐
+         │         External Services              │
+         ├────────────────────────────────────────┤
+         │  ┌──────────────────────────────────┐ │
+         │  │        Supabase Cloud            │ │
+         │  │  ┌────────────┐ ┌─────────────┐ │ │
+         │  │  │ PostgreSQL │ │   Storage   │ │ │
+         │  │  │ - trips    │ │ - images    │ │ │
+         │  │  │ - exp.     │ │ - videos    │ │ │
+         │  │  │ - media    │ │ - audio     │ │ │
+         │  │  │ - visited  │ │             │ │ │
+         │  │  └────────────┘ └─────────────┘ │ │
+         │  │  ┌────────────┐                 │ │
+         │  │  │    Auth    │                 │ │
+         │  │  │ - Email    │                 │ │
+         │  │  │ - JWT      │                 │ │
+         │  │  └────────────┘                 │ │
+         │  └──────────────────────────────────┘ │
+         │                                        │
+         │  ┌──────────────────────────────────┐ │
+         │  │      3rd Party APIs              │ │
+         │  │  - OpenWeather                   │ │
+         │  │  - Google Geocoding              │ │
+         │  └──────────────────────────────────┘ │
+         └────────────────────────────────────────┘
+```
+
+### 6-2. データフロー図
+
+#### データの流れ（Phase 2）
+
+```
+┌───────────────────────────────────────────────────────────────────┐
+│                   1. 新規体験の記録フロー                           │
+└───────────────────────────────────────────────────────────────────┘
+
+User Action → UI Component → Service → Local DB → Sync Service → Cloud
+    │             │             │          │            │            │
+    ▼             ▼             ▼          ▼            ▼            ▼
+ [写真撮影]   CameraScreen  MediaService  SQLite    SyncService  Supabase
+    │             │             │          │            │            │
+    │             │      [ファイル保存]   [INSERT]   [タイムスタンプ] [INSERT]
+    │             │             │          │            │            │
+    │             │      [サムネイル生成] [experience] [変更追跡]  [PostgreSQL]
+    │             │             │          │            │            │
+    │             │      [メタデータ抽出] [media]     [バッチ処理]  [Storage]
+    │             │             │          │            │            │
+    └─────────────┴─────────────┴──────────┴────────────┴────────────┘
+                                    ↓
+                          [ローカル表示は即座]
+                          [クラウド同期は非同期]
+
+
+┌───────────────────────────────────────────────────────────────────┐
+│                2. マルチデバイス同期フロー                           │
+└───────────────────────────────────────────────────────────────────┘
+
+Device A (iPhone)                    Supabase Cloud                    Device B (iPad)
+    │                                      │                                │
+    │ [体験を記録]                          │                                │
+    │ ↓                                    │                                │
+    │ SQLite INSERT                        │                                │
+    │ updated_at: 2025-11-02 10:00:00     │                                │
+    │ ↓                                    │                                │
+    │ WiFi接続検知                          │                                │
+    │ ↓                                    │                                │
+    │ ─────── Upload ──────────────────>  │                                │
+    │         (POST /experiences)          │                                │
+    │                                      │ PostgreSQL INSERT              │
+    │                                      │ updated_at: 2025-11-02 10:00:00│
+    │                                      │ ↓                              │
+    │                                      │ Realtime Broadcast ────────>  │
+    │                                      │                                │ Realtime Listener
+    │                                      │                                │ ↓
+    │                                      │                                │ SQLite UPDATE
+    │                                      │                                │ updated_at: 10:00:00
+    │                                      │                                │ ↓
+    │                                      │  <───── Fetch (GET) ─────────  │
+    │                                      │         /experiences           │
+    │                                      │         ?updated_after=...     │
+    │                                      │                                │
+    │                                      │ ─────── Response ───────────>  │
+    │                                      │         [新規データ]            │
+    │                                      │                                │ ↓
+    │                                      │                                │ 画面更新
+    │                                      │                                │
+
+
+┌───────────────────────────────────────────────────────────────────┐
+│              3. コンフリクト解決フロー（Last Write Wins）            │
+└───────────────────────────────────────────────────────────────────┘
+
+Device A                        Supabase                        Device B
+    │                              │                                │
+    │ [オフラインで編集]            │                                │ [オフラインで編集]
+    │ title: "東京タワー"           │                                │ title: "Tokyo Tower"
+    │ updated_at: 10:00:00         │                                │ updated_at: 10:05:00
+    │                              │                                │
+    │ ─── Upload (10:30) ────>    │                                │
+    │     updated_at: 10:00:00     │                                │
+    │                              │ ← Supabaseタイムスタンプ更新    │
+    │                              │   server_updated: 10:30:00     │
+    │                              │                                │
+    │                              │  <──── Upload (10:35) ────────│
+    │                              │        updated_at: 10:05:00    │
+    │                              │                                │
+    │                              │ ✅ 10:05 > 10:00               │
+    │                              │    新しいので上書き             │
+    │                              │    server_updated: 10:35:00    │
+    │                              │                                │
+    │  <─── Sync Response ────    │                                │
+    │       [Device Bの変更を取得] │                                │
+    │       title: "Tokyo Tower"   │                                │
+    │                              │                                │
+    │ ⚠️ ローカルが古いので上書き    │                                │
+    │    title: "Tokyo Tower"      │                                │
+    │                              │                                │
+
+
+┌───────────────────────────────────────────────────────────────────┐
+│                    4. 認証フロー（メール認証）                       │
+└───────────────────────────────────────────────────────────────────┘
+
+User                 App                  Supabase Auth           Email Service
+ │                    │                         │                      │
+ │ [Sign Up]          │                         │                      │
+ │ ─────────────────> │                         │                      │
+ │  email: user@ex.com│                         │                      │
+ │  password: ******  │                         │                      │
+ │                    │ signUp()                │                      │
+ │                    │ ──────────────────────> │                      │
+ │                    │                         │ Create User          │
+ │                    │                         │ Generate Token       │
+ │                    │                         │ ──────────────────>  │
+ │                    │                         │   Confirmation Email │
+ │                    │                         │                      │
+ │  <──────────────── │ <──────────────────────│                      │
+ │  確認メール送信済み   │  {user, session: null} │                      │
+ │                    │                         │                      │
+ │ [Email確認]         │                         │                      │
+ │ ─────────────────────────────────────────>  │                      │
+ │  Click Confirm Link                          │                      │
+ │                    │                         │ Verify Email         │
+ │                    │                         │ Create Session       │
+ │                    │  <─────────────────────│                      │
+ │                    │  {user, session, token} │                      │
+ │  <──────────────── │                         │                      │
+ │  ログイン成功        │                         │                      │
+ │                    │ [Auto-sync Start]       │                      │
+ │                    │                         │                      │
+
+
+┌───────────────────────────────────────────────────────────────────┐
+│                   5. メディアファイル同期フロー                       │
+└───────────────────────────────────────────────────────────────────┘
+
+Local Device                        Supabase Storage
+    │                                      │
+    │ [写真撮影]                            │
+    │ ↓                                    │
+    │ File System                          │
+    │ /cache/IMG_001.jpg (5MB)             │
+    │ ↓                                    │
+    │ SQLite INSERT                        │
+    │ media_files:                         │
+    │   local_uri: file:///.../IMG_001.jpg │
+    │   cloud_url: NULL                    │
+    │   sync_status: 'pending'             │
+    │ ↓                                    │
+    │ [WiFi接続]                            │
+    │ ↓                                    │
+    │ SyncService.uploadMedia()            │
+    │ ↓                                    │
+    │ 1. ファイル読み込み                    │
+    │ 2. Base64エンコード（必要に応じて）      │
+    │ 3. リサイズ（大きすぎる場合）            │
+    │ ↓                                    │
+    │ ───── Upload ──────────────────────> │
+    │       POST /storage/v1/object/       │
+    │       bucket: 'media'                 │
+    │       path: user_id/exp_id/IMG_001.jpg│
+    │                                      │ ✅ ファイル保存
+    │                                      │    /media/user123/exp456/...
+    │  <────── Response ──────────────────│
+    │          {public_url}                │
+    │ ↓                                    │
+    │ SQLite UPDATE                        │
+    │ media_files:                         │
+    │   cloud_url: https://...             │
+    │   sync_status: 'synced'              │
+    │ ↓                                    │
+    │ [オプション] ローカルファイル削除       │
+    │              (ストレージ節約)          │
+    │                                      │
+```
+
+### 6-3. データベーススキーマ関係図
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                  Supabase PostgreSQL Schema                    │
+└────────────────────────────────────────────────────────────────┘
+
+    profiles (Supabase Auth拡張)
+    ┌─────────────────────────────┐
+    │ id (UUID) PK                │
+    │ email                       │
+    │ display_name                │
+    │ avatar_url                  │
+    │ created_at                  │
+    └─────────────────────────────┘
+              │
+              │ user_id FK
+              ↓
+    trips
+    ┌─────────────────────────────┐
+    │ id (UUID) PK                │
+    │ user_id FK → profiles.id    │◄────────┐
+    │ title                       │         │
+    │ start_date                  │         │
+    │ end_date                    │         │
+    │ companions                  │         │
+    │ purpose                     │         │
+    │ notes                       │         │
+    │ created_at                  │         │
+    │ updated_at                  │         │
+    │ synced_at                   │         │
+    └─────────────────────────────┘         │
+              │                             │
+              │ trip_id FK                  │
+              ↓                             │
+    experiences                             │
+    ┌─────────────────────────────┐         │
+    │ id (UUID) PK                │         │
+    │ user_id FK → profiles.id    │         │
+    │ trip_id FK → trips.id       │─────────┘
+    │ title                       │
+    │ description                 │
+    │ country_code                │
+    │ country_name                │
+    │ city                        │
+    │ latitude                    │
+    │ longitude                   │
+    │ visit_date                  │
+    │ weather                     │
+    │ temperature                 │
+    │ category                    │
+    │ rating                      │
+    │ created_at                  │
+    │ updated_at                  │
+    │ synced_at                   │
+    └─────────────────────────────┘
+              │
+              │ experience_id FK
+              ↓
+    media_files
+    ┌─────────────────────────────┐
+    │ id (UUID) PK                │
+    │ experience_id FK            │
+    │ user_id FK → profiles.id    │
+    │ file_type (photo/video/audio)│
+    │ file_path (Storage)         │
+    │ cloud_url                   │
+    │ thumbnail_url               │
+    │ file_size                   │
+    │ duration (audio/video)      │
+    │ created_at                  │
+    │ synced_at                   │
+    └─────────────────────────────┘
+
+    visited_countries (集計テーブル)
+    ┌─────────────────────────────┐
+    │ id (UUID) PK                │
+    │ user_id FK → profiles.id    │
+    │ country_code                │
+    │ country_name                │
+    │ first_visit_date            │
+    │ last_visit_date             │
+    │ visit_count                 │
+    │ experience_count            │
+    │ photo_count                 │
+    └─────────────────────────────┘
+
+RLS (Row Level Security) ポリシー:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+全テーブルに以下のポリシーを適用:
+  ✅ SELECT: user_id = auth.uid()
+  ✅ INSERT: user_id = auth.uid()
+  ✅ UPDATE: user_id = auth.uid()
+  ✅ DELETE: user_id = auth.uid()
+
+→ ユーザーは自分のデータのみアクセス可能
+```
+
+### 6-4. 同期戦略の詳細
+
+#### タイムスタンプベースの同期（Last Write Wins）
+
+**フィールド定義:**
+- `updated_at`: クライアント側で記録した最終更新時刻
+- `synced_at`: Supabaseに同期された時刻（サーバータイムスタンプ）
+
+**同期ロジック:**
+
+1. **アップロード（Local → Cloud）**
+   ```typescript
+   // クライアント側
+   const localData = await db.getAllPendingChanges(); // updated_at > synced_at
+
+   for (const item of localData) {
+     const response = await supabase
+       .from('experiences')
+       .upsert({
+         ...item,
+         user_id: auth.user.id,
+       })
+       .select();
+
+     // ローカルのsynced_atを更新
+     await db.updateSyncedAt(item.id, new Date());
+   }
+   ```
+
+2. **ダウンロード（Cloud → Local）**
+   ```typescript
+   // クライアント側
+   const lastSyncTime = await db.getLastSyncTime();
+
+   const { data: remoteChanges } = await supabase
+     .from('experiences')
+     .select('*')
+     .gt('synced_at', lastSyncTime);
+
+   for (const remoteItem of remoteChanges) {
+     const localItem = await db.getById(remoteItem.id);
+
+     // コンフリクト解決: リモートのupdated_atが新しければ上書き
+     if (!localItem || remoteItem.updated_at > localItem.updated_at) {
+       await db.upsert(remoteItem);
+     }
+   }
+   ```
+
+3. **リアルタイム更新**
+   ```typescript
+   // Supabase Realtimeでリアルタイム同期
+   supabase
+     .channel('experiences_changes')
+     .on('postgres_changes',
+       { event: '*', schema: 'public', table: 'experiences' },
+       async (payload) => {
+         if (payload.new.user_id === auth.user.id) {
+           await db.upsert(payload.new);
+         }
+       }
+     )
+     .subscribe();
+   ```
+
+**メディアファイルの同期:**
+- 低優先度キュー（WiFiのみ）
+- 並列アップロード制限（3ファイル同時）
+- リトライロジック（3回まで）
+- プログレス表示
+
+---
+
+## 6-5. Phase 2開始前チェックリスト
+
+### 環境構築チェックリスト
+
+#### Supabaseプロジェクト設定
+- [ ] Supabaseアカウント作成
+- [ ] 新規プロジェクトの作成（プロジェクト名: `experience-the-world`）
+- [ ] プロジェクトURL・APIキーの取得
+  - [ ] `EXPO_PUBLIC_SUPABASE_URL`
+  - [ ] `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- [ ] 環境変数を`.env.local`に追加
+  ```bash
+  EXPO_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
+  EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc...
+  EXPO_PUBLIC_OPENWEATHER_API_KEY=existing_key  # 既存
+  ```
+
+#### データベーススキーマ設定
+- [ ] PostgreSQL拡張機能の有効化
+  - [ ] `uuid-ossp` 拡張（UUID生成用）
+  - [ ] `postgis` 拡張（位置情報用、オプション）
+- [ ] テーブル作成（SQL実行）
+  - [ ] `profiles` テーブル
+  - [ ] `trips` テーブル
+  - [ ] `experiences` テーブル
+  - [ ] `media_files` テーブル
+  - [ ] `visited_countries` テーブル
+- [ ] インデックス作成
+  - [ ] `experiences.user_id`
+  - [ ] `experiences.trip_id`
+  - [ ] `experiences.country_code`
+  - [ ] `media_files.experience_id`
+  - [ ] `visited_countries.user_id`
+
+#### Row Level Security (RLS) ポリシー設定
+- [ ] 全テーブルでRLS有効化
+- [ ] `profiles` テーブルポリシー
+  - [ ] SELECT: `auth.uid() = id`
+  - [ ] UPDATE: `auth.uid() = id`
+- [ ] `trips` テーブルポリシー
+  - [ ] SELECT: `auth.uid() = user_id`
+  - [ ] INSERT: `auth.uid() = user_id`
+  - [ ] UPDATE: `auth.uid() = user_id`
+  - [ ] DELETE: `auth.uid() = user_id`
+- [ ] `experiences` テーブルポリシー（同上）
+- [ ] `media_files` テーブルポリシー（同上）
+- [ ] `visited_countries` テーブルポリシー（同上）
+
+#### Supabase Storage設定
+- [ ] Storageバケット作成
+  - [ ] バケット名: `media`
+  - [ ] Public access: `false`（プライベート）
+- [ ] Storageポリシー設定
+  - [ ] Upload: `auth.uid() = (storage.foldername(name))[1]::uuid`
+  - [ ] Read: `auth.uid() = (storage.foldername(name))[1]::uuid`
+  - [ ] Delete: `auth.uid() = (storage.foldername(name))[1]::uuid`
+- [ ] ファイルサイズ制限確認（デフォルト50MB）
+
+#### Supabase Auth設定
+- [ ] Email認証を有効化
+- [ ] Email Templates設定（オプション）
+  - [ ] Confirm Signupテンプレート
+  - [ ] Reset Passwordテンプレート
+- [ ] Redirect URLs設定
+  - [ ] 開発環境: `exp://localhost:8081`
+  - [ ] 本番環境: カスタムスキーム設定予定
+- [ ] Email確認の必須化（Confirm email）: `true`
+
+#### パッケージインストール
+- [ ] Supabase関連
+  ```bash
+  npm install @supabase/supabase-js
+  ```
+- [ ] 日付選択（ステップ9.5）
+  ```bash
+  npm install @react-native-community/datetimepicker
+  ```
+- [ ] 地図表示（ステップ11）
+  ```bash
+  npm install react-native-maps
+  # GeoJSONデータは別途ダウンロード
+  ```
+- [ ] ネットワーク監視（ステップ14）
+  ```bash
+  npm install @react-native-community/netinfo
+  ```
+- [ ] アニメーション（ステップ13、オプション）
+  ```bash
+  npm install react-native-reanimated
+  ```
+
+#### 既存コードの準備状況
+- [x] Phase 1 MVP完了確認
+  - [x] ステップ1-9すべて完了
+  - [x] カメラ機能動作確認
+  - [x] 位置情報取得動作確認
+  - [x] 天気情報取得動作確認（APIキー設定済み）
+  - [x] 音声メモ録音機能動作確認
+  - [x] SQLiteローカルDB動作確認
+- [ ] Git状態確認
+  - [ ] コミットされていない変更がないか確認
+    ```bash
+    git status
+    ```
+  - [ ] 必要であれば現状をコミット
+    ```bash
+    git add .
+    git commit -m "Phase 1完了時点の状態を保存"
+    ```
+  - [ ] Phase 2開発用ブランチ作成（推奨）
+    ```bash
+    git checkout -b feature/phase2-supabase-integration
+    ```
+
+### 技術確認チェックリスト
+
+#### SupabaseとExpoの互換性確認
+- [ ] Expo SDK 54との互換性確認
+- [ ] `@supabase/supabase-js` バージョン確認（v2.x推奨）
+- [ ] AsyncStorageの動作確認（Supabase認証トークン保存用）
+
+#### 開発環境の動作確認
+- [ ] Expo Dev Clientでアプリ起動
+  ```bash
+  npx expo start
+  ```
+- [ ] 物理デバイスでの動作確認（推奨）
+- [ ] デバッグツールの確認
+  - [ ] React Native Debugger
+  - [ ] Flipper（オプション）
+
+#### データ移行計画（Phase 1 → Phase 2）
+- [ ] 既存SQLiteデータの扱いを決定
+  - [ ] オプションA: 既存データをSupabaseに移行（初回同期時）
+  - [ ] オプションB: Phase 2から新規データのみ同期
+  - [ ] **推奨**: オプションA（既存データも活用）
+- [ ] データ移行スクリプトの必要性確認
+  - [ ] SQLiteからSupabaseへの一括アップロード機能
+  - [ ] ステップ10-3で実装予定
+
+### ドキュメント整備チェックリスト
+
+- [x] 技術選定の完了
+  - [x] バックエンド: Supabase
+  - [x] 認証: メール認証
+  - [x] 同期戦略: タイムスタンプ管理
+  - [x] 地図: react-native-maps
+- [x] ステップ9.5詳細計画完了
+- [x] ステップ10-14詳細計画完了
+- [x] アーキテクチャ図・データフロー図作成完了
+- [ ] API仕様書作成（必要に応じて）
+  - [ ] Supabase RPCエンドポイント
+  - [ ] カスタムEdge Functions（Phase 3以降）
+
+### セキュリティチェックリスト
+
+- [ ] 環境変数の管理
+  - [ ] `.env.local`が`.gitignore`に含まれているか確認
+  - [ ] APIキーがコードにハードコードされていないか確認
+- [ ] Supabase RLSポリシーのテスト
+  - [ ] 他ユーザーのデータにアクセスできないことを確認
+  - [ ] 認証なしでアクセスできないことを確認
+- [ ] データバリデーション
+  - [ ] 入力値のサニタイズ
+  - [ ] SQLインジェクション対策（SupabaseのパラメータバインディングでOK）
+
+### テスト計画チェックリスト
+
+- [ ] テスト環境の準備
+  - [ ] Supabaseテストプロジェクト作成（オプション）
+  - [ ] テストユーザーアカウント作成
+- [ ] テストシナリオ作成
+  - [ ] 認証フロー（サインアップ→ログイン→ログアウト）
+  - [ ] データ同期（作成→更新→削除）
+  - [ ] マルチデバイス同期
+  - [ ] オフライン→オンライン復帰
+  - [ ] コンフリクト解決
+
+### Phase 2開始の最終確認
+
+以下の質問に「はい」と答えられたらPhase 2を開始できます：
+
+1. ✅ Phase 1のすべての機能が正常に動作しているか？
+2. ⏳ Supabaseプロジェクトが作成され、APIキーが取得できたか？
+3. ⏳ データベーススキーマとRLSポリシーが設定されたか？
+4. ⏳ 必要なnpmパッケージがインストールされたか？
+5. ⏳ 環境変数が`.env.local`に正しく設定されたか？
+6. ⏳ 開発環境でアプリが正常に起動するか？
+7. ✅ development-plan.mdにPhase 2の詳細計画が記載されているか？
+
+### Phase 2の最初のタスク
+
+すべてのチェックリストが完了したら、**ステップ9.5: 旅行管理UI**から開始します：
+
+```bash
+# ステップ9.5の最初のタスク
+- タスク9.5-1: TripsScreen基本実装
+  - src/screens/TripsScreen.tsxの作成
+  - 旅行一覧の表示
+  - 空状態（旅行なし）の表示
+```
 
 ---
 
