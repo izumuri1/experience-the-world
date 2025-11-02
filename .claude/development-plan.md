@@ -3548,6 +3548,133 @@ RLS (Row Level Security) ポリシー:
 
 ---
 
+## 6-3. Phase 2 環境構築完了
+
+**実施日**: 2025年11月2日
+
+### Supabaseプロジェクトセットアップ
+
+✅ **完了事項:**
+
+1. **Supabaseプロジェクト作成**
+   - プロジェクトURL: `https://xpbxmuzimqfazajkmfpa.supabase.co`
+   - APIキー取得完了（ANON_KEY, SERVICE_ROLE_KEY）
+
+2. **MCP設定**
+   - `.vscode/settings.json`作成（Git ignore済み）
+   - Supabase MCPサーバー設定完了
+
+3. **環境変数設定**
+   - `.env.local`にSupabase設定追加
+   - `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+
+4. **パッケージインストール**
+   ```bash
+   npm install @supabase/supabase-js
+   npm install @react-native-community/datetimepicker
+   npm install @react-native-community/netinfo
+   npm install @react-navigation/native @react-navigation/native-stack react-native-screens react-native-safe-area-context
+   ```
+
+5. **データベーススキーマ作成**
+   - `supabase-schema.sql`作成・実行完了
+   - テーブル: profiles, trips, experiences, media_files, visited_countries
+   - インデックス、RLSポリシー、トリガー設定完了
+
+6. **ストレージ設定**
+   - `supabase-storage-setup.sql`作成・実行完了
+   - `media`バケット作成
+   - RLSポリシー設定（upload, read, delete）
+
+### トラブルシューティング
+
+**React Navigationインストールエラー**
+- 問題: `Unable to resolve "@react-navigation/native"`
+- 解決: React Navigationパッケージ一式インストール
+- 追加問題: `Unable to resolve "./types.js"`
+- 解決: `rm -rf node_modules && npm install`で再インストール
+
+---
+
+## 6-4. ステップ9.5完了: 旅行管理UI
+
+**実施日**: 2025年11月2日
+**目的**: 旅行単位で体験を整理できるUI実装
+
+### 実装内容
+
+✅ **1. TripsScreen（旅行一覧画面）**
+- `src/screens/TripsScreen.tsx`作成
+- 旅行カード表示（タイトル、期間、統計）
+- 空状態表示
+- 新規作成ボタン
+- Pull-to-refresh機能
+
+✅ **2. TripFormScreen（旅行作成・編集画面）**
+- `src/screens/TripFormScreen.tsx`作成
+- フォーム入力（タイトル、開始日、終了日、同行者、目的、メモ）
+- DateTimePicker統合（iOS/Android対応）
+- バリデーション（タイトル必須、日付の整合性）
+- 保存処理実装
+
+✅ **3. TripDetailScreen（旅行詳細画面）**
+- `src/screens/TripDetailScreen.tsx`作成
+- 旅行情報カード表示
+- 統計表示（訪問国数、体験数）
+- 訪問国タグ一覧
+- 体験リスト表示（写真付き）
+- 削除機能（体験は未分類に移動）
+
+✅ **4. TripSelector（旅行選択モーダル）**
+- `src/components/TripSelector.tsx`作成
+- ボトムシートモーダル
+- 旅行一覧表示
+- 現在選択中の旅行ハイライト
+- 「未分類」オプション
+
+✅ **5. DatabaseService拡張**
+- `getAllTrips()`: 旅行一覧取得
+- `getExperiencesByTripId()`: 旅行IDで体験取得
+- `databaseService`エクスポート追加
+
+✅ **6. HomeScreen拡張**
+- 旅行ボタン追加
+- `onTripsPress`コールバック追加
+
+✅ **7. App.tsx統合**
+- 旅行関連モーダル追加（TripsScreen, TripFormScreen, TripDetailScreen）
+- 状態管理追加（showTrips, showTripForm, showTripDetail, selectedTripId）
+
+✅ **8. ExperienceDetailScreen拡張**
+- 旅行情報表示追加
+- useEffectで旅行タイトル非同期ロード
+- 旅行アイコン表示
+
+### 技術的な実装ポイント
+
+**モーダルベースナビゲーション**
+- React Navigation Navigatorは使用せず、モーダルスタックで実装
+- `useNavigation`フックでモーダル間遷移
+- シンプルな実装で保守性向上
+
+**日付処理**
+- DatabaseServiceはUnixタイムスタンプ（秒）で保存
+- UIはJavaScript Date、ISO文字列で処理
+- DateTimePickerでクロスプラットフォーム対応
+
+**非同期データロード**
+- useEffectで旅行情報を非同期ロード
+- tripIdの変更を監視して再ロード
+- ローディング状態とエラーハンドリング
+
+### コミット履歴
+
+1. `feat: TripsScreen実装 - 旅行一覧表示機能追加`
+2. `feat: TripFormScreen・TripDetailScreen実装 - 旅行CRUD完成`
+3. `feat: Step 9.5完了 - 旅行管理UI統合・HomeScreen/App.tsx/ExperienceDetailScreen連携`
+
+---
+
 ## 7. 参考リソース
 
 ### 7-1. Expoドキュメント
