@@ -332,16 +332,18 @@ class DatabaseService {
    * 体験記録を作成
    */
   async appCreateExperience(data: {
+    id?: string; // 同期時に既存IDを指定可能
     timestamp?: Date;
     location?: Location;
     weather?: Weather;
     textNotes?: string;
     tags?: string[];
     tripId?: string; // 旅行IDを指定可能に
+    mediaFiles?: any[]; // 同期時にメディアファイル情報を渡す
   }): Promise<string> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const id = Crypto.randomUUID();
+    const id = data.id || Crypto.randomUUID();
     const now = Math.floor(Date.now() / 1000);
     const timestamp = data.timestamp
       ? Math.floor(data.timestamp.getTime() / 1000)
@@ -490,6 +492,30 @@ class DatabaseService {
   }
 
   /**
+   * IDで体験記録を取得
+   */
+  async getExperienceById(id: string): Promise<Experience | null> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const row = await this.db.getFirstAsync<ExperienceRow>(
+      'SELECT * FROM experiences WHERE id = ?',
+      [id]
+    );
+
+    if (!row) {
+      return null;
+    }
+
+    // メディアファイルを取得
+    const mediaFiles = await this.db.getAllAsync<MediaFileRow>(
+      'SELECT * FROM media_files WHERE experience_id = ?',
+      [row.id]
+    );
+
+    return appMapExperienceRowToModel(row, mediaFiles);
+  }
+
+  /**
    * 体験記録を削除
    */
   async appDeleteExperience(id: string): Promise<void> {
@@ -595,6 +621,7 @@ class DatabaseService {
    * 旅行を作成
    */
   async appCreateTrip(data: {
+    id?: string; // 同期時に既存IDを指定可能
     title: string;
     startDate: Date;
     endDate?: Date;
@@ -604,7 +631,7 @@ class DatabaseService {
   }): Promise<string> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const id = Crypto.randomUUID();
+    const id = data.id || Crypto.randomUUID();
     const now = Math.floor(Date.now() / 1000);
     const startDate = Math.floor(data.startDate.getTime() / 1000);
     const endDate = data.endDate ? Math.floor(data.endDate.getTime() / 1000) : null;

@@ -3,7 +3,8 @@
     "allow": [
       "Read(//home/izumuri/the-world/**)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git push)"
     ],
     "deny": [],
     "ask": []

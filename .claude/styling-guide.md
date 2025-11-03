@@ -19,6 +19,11 @@
 5. [レイアウトのベストプラクティス](#5-レイアウトのベストプラクティス)
 6. [よくある問題と解決方法](#6-よくある問題と解決方法)
 7. [アクセシビリティ](#7-アクセシビリティ)
+8. [パフォーマンス](#8-パフォーマンス)
+9. [UIパターンとコンポーネント設計](#9-uiパターンとコンポーネント設計)
+10. [バリデーションルール](#10-バリデーションルール)
+11. [レスポンシブ対応](#11-レスポンシブ対応)
+12. [まとめ](#12-まとめ)
 
 ---
 
@@ -728,9 +733,270 @@ FlatListを使い、`className`は静的に保つ：
 
 ---
 
-## 9. まとめ
+## 9. UIパターンとコンポーネント設計
 
-### 9-1. スタイリングの基本原則
+このセクションでは、アプリ全体で統一されたUIパターンとコンポーネントの設計ルールを定義します。
+
+### 9-1. 画面構成の統一ルール
+
+全ての画面で統一された構成を使用することで、一貫性のあるユーザー体験を提供します。
+
+#### 背景色
+
+全ての画面で統一された背景色を使用：
+
+```tsx
+<View className="flex-1 bg-primary-500">
+```
+
+#### ヘッダー構成
+
+```tsx
+<View className="pt-16 pb-8 px-6">
+  {/* アイコン */}
+  <View className="bg-white/20 rounded-full w-20 h-20 items-center justify-center mb-4">
+    <Ionicons name="earth" size={40} color="white" />
+  </View>
+
+  {/* タイトル */}
+  <Text className="text-white text-2xl font-bold mb-2 text-center">
+    Experience the World
+  </Text>
+
+  {/* サブタイトル */}
+  <Text className="text-secondary-500 text-lg text-center">
+    サブタイトルテキスト
+  </Text>
+</View>
+```
+
+**ルール:**
+- タイトルは全画面で "Experience the World" を使用
+- タイトルカラー: `text-white`
+- サブタイトルカラー: `text-secondary-500`
+- アイコン背景: `bg-white/20` (半透明白)
+
+#### カード/コンテンツエリア
+
+```tsx
+<View className="bg-white rounded-2xl p-6 shadow-lg">
+  {/* コンテンツ */}
+</View>
+```
+
+**ルール:**
+- 背景: `bg-white`
+- 角丸: `rounded-2xl` (16px)
+- 内側余白: `p-6` (24px)
+- シャドウ: `shadow-lg`
+
+### 9-2. 入力フィールド
+
+```tsx
+<View style={{ marginBottom: 16 }}>
+  <Text style={{
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#374151',
+    marginBottom: 8
+  }}>
+    ラベル
+  </Text>
+  <TextInput
+    style={{
+      backgroundColor: 'white',
+      borderWidth: 1,
+      borderColor: '#D1D5DB',
+      borderRadius: 8,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      fontSize: 16,
+    }}
+    placeholderTextColor="#9CA3AF"
+  />
+</View>
+```
+
+**ルール:**
+- ラベル色: `#374151` (gray-700)
+- 背景: 白
+- ボーダー: `#D1D5DB` (gray-300)
+- 角丸: `8px`
+- プレースホルダー: `#9CA3AF` (gray-400)
+
+### 9-3. ボタンスタイル
+
+#### プライマリボタン（アクション）
+
+```tsx
+<TouchableOpacity
+  className={`rounded-lg py-4 mb-4 ${loading ? 'bg-secondary-300' : 'bg-secondary-500'}`}
+>
+  <Text className="text-white text-center font-bold text-base">
+    ボタンテキスト
+  </Text>
+</TouchableOpacity>
+```
+
+**ルール:**
+- 通常状態: `bg-secondary-500` (#ffc107)
+- 無効/ローディング状態: `bg-secondary-300` (#ffcf33)
+- テキスト色: `text-white`
+- テキスト太さ: `font-bold`
+- 内側余白: `py-4` (16px vertical)
+- 角丸: `rounded-lg` (8px)
+
+#### テキストリンク
+
+```tsx
+<TouchableOpacity onPress={handlePress}>
+  <Text className="text-primary-500 text-sm font-bold">
+    リンクテキスト
+  </Text>
+</TouchableOpacity>
+```
+
+**ルール:**
+- テキスト色: `text-primary-500` (#3388ff)
+- サイズ: `text-sm` (14px)
+- 太さ: `font-bold` (強調する場合)
+
+#### サブテキストリンク
+
+```tsx
+<Text className="text-gray-600 text-sm mr-2">
+  補足テキスト
+</Text>
+<TouchableOpacity onPress={handlePress}>
+  <Text className="text-primary-500 text-sm font-bold">
+    リンク
+  </Text>
+</TouchableOpacity>
+```
+
+### 9-4. アイコン使用ガイドライン
+
+#### Ioniconsの使用
+
+```tsx
+import { Ionicons } from '@expo/vector-icons';
+
+<Ionicons name="earth" size={40} color="white" />
+```
+
+#### 主要アイコン
+
+- **earth**: アプリロゴ
+- **camera**: カメラ機能
+- **time-outline**: タイムライン
+- **map-outline**: 訪問国
+- **airplane**: 旅行
+- **cloud-upload-outline**: 同期
+- **checkmark-circle**: 成功
+- **alert-circle**: エラー
+- **eye-outline** / **eye-off-outline**: パスワード表示切替
+
+---
+
+## 10. バリデーションルール
+
+### 10-1. 共通バリデーション関数の使用
+
+全ての入力バリデーションは `src/utils/validation.ts` の共通関数を使用：
+
+```typescript
+import {
+  validateEmail,
+  validatePassword,
+  validatePasswordConfirmation,
+  validateRequired
+} from '../utils/validation';
+
+// メールアドレスのバリデーション
+const emailValidation = validateEmail(email);
+if (!emailValidation.isValid) {
+  Alert.alert('入力エラー', emailValidation.error!);
+  return;
+}
+
+// パスワードのバリデーション
+const passwordValidation = validatePassword(password);
+if (!passwordValidation.isValid) {
+  Alert.alert('入力エラー', passwordValidation.error!);
+  return;
+}
+
+// パスワード確認のバリデーション
+const confirmValidation = validatePasswordConfirmation(password, confirmPassword);
+if (!confirmValidation.isValid) {
+  Alert.alert('入力エラー', confirmValidation.error!);
+  return;
+}
+```
+
+### 10-2. バリデーションルール詳細
+
+#### メールアドレス
+
+- 必須
+- 形式: `user@domain.tld`
+- エラーメッセージ: "メールアドレスを入力してください" / "有効なメールアドレスを入力してください"
+
+#### パスワード
+
+- 必須
+- 最小6文字
+- エラーメッセージ: "パスワードを入力してください" / "パスワードは6文字以上にしてください"
+
+#### パスワード確認
+
+- パスワードと一致
+- エラーメッセージ: "パスワードが一致しません"
+
+### 10-3. エラー表示
+
+```typescript
+Alert.alert('入力エラー', errorMessage);
+```
+
+**ルール:**
+- タイトル: "入力エラー"（バリデーションエラー）、"エラー"（システムエラー）
+- メッセージ: バリデーション関数から返されたエラーメッセージを使用
+
+---
+
+## 11. レスポンシブ対応
+
+### 11-1. ScrollViewの使用
+
+```tsx
+<ScrollView
+  contentContainerStyle={{ paddingVertical: 48, paddingHorizontal: 24 }}
+  keyboardShouldPersistTaps="handled"
+  showsVerticalScrollIndicator={false}
+>
+  {/* コンテンツ */}
+</ScrollView>
+```
+
+### 11-2. KeyboardAvoidingViewの使用（フォーム画面）
+
+```tsx
+<KeyboardAvoidingView
+  behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+  className="flex-1 bg-primary-500"
+>
+  <ScrollView>
+    {/* フォーム */}
+  </ScrollView>
+</KeyboardAvoidingView>
+```
+
+---
+
+## 12. まとめ
+
+### 12-1. スタイリングの基本原則
 
 1. **classNameを優先**: 基本的にTailwindCSSのclassNameを使う
 2. **動的なスタイルのみstyle**: 計算された値やアニメーションのみstyleを使う
@@ -738,12 +1004,23 @@ FlatListを使い、`className`は静的に保つ：
 4. **読み込み順を意識**: 後ろのclassが優先されることを理解する
 5. **カスタムカラーを活用**: tailwind.config.jsで定義したカラーを使う
 
-### 9-2. 困ったときは
+### 12-2. デザイン統一の原則
+
+このガイドラインに従うことで：
+- ✅ 統一されたビジュアルデザイン
+- ✅ 保守性の高いコードベース
+- ✅ 一貫したユーザー体験
+- ✅ 新機能追加時の迷いを削減
+
+新しい画面やコンポーネントを作成する際は、このガイドラインを参照してください。
+
+### 12-3. 困ったときは
 
 1. このガイドの「6. よくある問題と解決方法」を確認
 2. `npx expo start --clear`でキャッシュクリア
 3. `babel.config.js`と`tailwind.config.js`を確認
 4. classNameとstyleの併用を確認
+5. バリデーションは `src/utils/validation.ts` の共通関数を使用
 
 ---
 

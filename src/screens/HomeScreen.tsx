@@ -8,9 +8,11 @@
  */
 
 import { useEffect, useState } from 'react';
-import { View, Text, Pressable, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { db } from '../database/DatabaseService';
+import { useAuth } from '../contexts/AuthContext';
+import syncService, { SyncStatus } from '../services/SyncService';
 
 interface HomeScreenProps {
   onCameraPress: () => void;
@@ -20,14 +22,27 @@ interface HomeScreenProps {
 }
 
 export default function HomeScreen({ onCameraPress, onTimelinePress, onCountriesPress, onTripsPress }: HomeScreenProps) {
+  const { user, signOut } = useAuth();
   const [stats, setStats] = useState({
     experienceCount: 0,
     countryCount: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
+  const [syncProgress, setSyncProgress] = useState<string>('');
 
   useEffect(() => {
     appLoadStats();
+
+    // 同期状態を監視
+    const unsubscribe = syncService.onStatusChange((status, progress) => {
+      setSyncStatus(status);
+      setSyncProgress(progress || '');
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   // 統計情報を読み込む
@@ -47,6 +62,52 @@ export default function HomeScreen({ onCameraPress, onTimelinePress, onCountries
     }
   };
 
+  // 同期を実行
+  const handleSync = async () => {
+    if (!user) return;
+
+    try {
+      const result = await syncService.syncAll(user.id);
+
+      if (result.success) {
+        Alert.alert(
+          '同期完了',
+          `アップロード: ${result.uploadedCount}件\nダウンロード: ${result.downloadedCount}件`
+        );
+        // 統計情報を再読み込み
+        await appLoadStats();
+      } else {
+        Alert.alert('同期エラー', result.error || '同期に失敗しました');
+      }
+    } catch (error) {
+      console.error('Sync error:', error);
+      Alert.alert('同期エラー', '同期に失敗しました');
+    }
+  };
+
+  // サインアウト
+  const handleSignOut = () => {
+    Alert.alert(
+      'サインアウト',
+      'サインアウトしますか？',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: 'サインアウト',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await signOut();
+            } catch (error) {
+              console.error('Sign out error:', error);
+              Alert.alert('エラー', 'サインアウトに失敗しました');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <View className="flex-1 bg-white items-center justify-center">
@@ -64,12 +125,60 @@ export default function HomeScreen({ onCameraPress, onTimelinePress, onCountries
       >
         {/* ヘッダー */}
         <View className="pt-16 pb-8 px-6">
+          {/* ユーザー情報とサインアウト */}
+          <View className="flex-row items-center justify-between mb-4">
+            <View className="flex-1">
+              <Text className="text-white text-sm opacity-80">
+                {user?.email}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={handleSignOut}
+              className="bg-white/20 rounded-full px-3 py-1"
+            >
+              <Text className="text-white text-sm">サインアウト</Text>
+            </TouchableOpacity>
+          </View>
+
           <Text className="text-white text-2xl font-bold mb-2 text-center">
             Experience the World
           </Text>
           <Text className="text-secondary-500 text-lg text-center">
             瞬間を捉える、体験が蘇る
           </Text>
+
+          {/* 同期ボタン */}
+          <View className="mt-4">
+            <TouchableOpacity
+              onPress={handleSync}
+              disabled={syncStatus === 'syncing'}
+              className={`flex-row items-center justify-center rounded-full py-2 px-4 ${
+                syncStatus === 'syncing' ? 'bg-white/30' : 'bg-white/20'
+              }`}
+            >
+              {syncStatus === 'syncing' ? (
+                <>
+                  <ActivityIndicator size="small" color="white" />
+                  <Text className="text-white ml-2 text-sm">{syncProgress}</Text>
+                </>
+              ) : syncStatus === 'success' ? (
+                <>
+                  <Ionicons name="checkmark-circle" size={18} color="white" />
+                  <Text className="text-white ml-2 text-sm">同期完了</Text>
+                </>
+              ) : syncStatus === 'error' ? (
+                <>
+                  <Ionicons name="alert-circle" size={18} color="white" />
+                  <Text className="text-white ml-2 text-sm">同期エラー</Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="cloud-upload-outline" size={18} color="white" />
+                  <Text className="text-white ml-2 text-sm">クラウドに同期</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* 統計カード */}
@@ -171,7 +280,7 @@ export default function HomeScreen({ onCameraPress, onTimelinePress, onCountries
         {/* フッター */}
         <View className="pt-8 px-6">
           <Text className="text-primary-100 text-center text-sm">
-            Phase 1 MVP - ローカルストレージ版
+            Phase 2 - クラウド同期対応
           </Text>
         </View>
       </ScrollView>

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, View, Modal, Text, TouchableOpacity } from 'react-native';
 import { db } from './src/database/DatabaseService';
 import { mediaService } from './src/services/MediaService';
+import { AuthProvider, useAuth } from './src/contexts/AuthContext';
+import AuthScreen from './src/screens/AuthScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import CameraScreen from './src/screens/CameraScreen';
 import TimelineScreen from './src/screens/TimelineScreen';
@@ -12,7 +14,8 @@ import TripFormScreen from './src/screens/TripFormScreen';
 import TripDetailScreen from './src/screens/TripDetailScreen';
 import type { Experience } from './src/types/models';
 
-export default function App() {
+function AppContent() {
+  const { user, loading: authLoading } = useAuth();
   const [isReady, setIsReady] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
@@ -170,12 +173,17 @@ export default function App() {
   }
 
   // ローディング中の表示
-  if (!isReady) {
+  if (!isReady || authLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-white">
         <ActivityIndicator size={48} color="#3388ff" />
       </View>
     );
+  }
+
+  // 認証されていない場合は認証画面を表示
+  if (!user) {
+    return <AuthScreen />;
   }
 
   return (
@@ -275,5 +283,13 @@ export default function App() {
         )}
       </Modal>
     </>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
